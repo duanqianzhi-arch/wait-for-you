@@ -1,0 +1,28 @@
+# Generated / machine-local files
+__pycache__/
+*.py[cod]
+node_modules/
+.gradle/
+**/build/
+local.properties
+.openai/
+.sites-runtime/
+.DS_Store
+Thumbs.db
+*.log
+*.zip
+
+# Release signing and credentials must stay outside the repository
+signing.properties
+key-password.txt
+*.jks
+*.keystore
+*.p12
+android-signing/
+android-tools/
+.env
+.env.*
+
+# Original timetable exports can contain personal information
+*.xls
+*.xlsx

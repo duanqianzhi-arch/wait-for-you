@@ -1,0 +1,66 @@
+plugins { id 'com.android.application' }
+android {
+    namespace 'cn.henu.study.waitforclass'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'cn.henu.study.waitforclass'
+        minSdk 26
+        targetSdk 35
+        versionCode 2
+        versionName '1.0.1'
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+    }
+    sourceSets { main { assets.srcDirs = ['build/generated/web-assets'] } }
+    def signingFile = rootProject.file(providers.gradleProperty('studySigningProperties').orElse(providers.environmentVariable('STUDY_SIGNING_PROPERTIES')).getOrElse('../../android-signing/signing.properties'))
+    if(signingFile.exists()) {
+        def releaseKeys = new Properties()
+        signingFile.withInputStream { releaseKeys.load(it) }
+        signingConfigs {
+            release {
+                storeFile file(releaseKeys.getProperty('storeFile'))
+                storePassword releaseKeys.getProperty('storePassword')
+                keyAlias releaseKeys.getProperty('keyAlias')
+                keyPassword releaseKeys.getProperty('keyPassword')
+            }
+        }
+    }
+    buildTypes { release { minifyEnabled false; if(signingFile.exists()) signingConfig signingConfigs.release } }
+    testBuildType project.findProperty('studyTestBuildType') ?: 'debug'
+    testOptions {
+        unitTests.includeAndroidResources = true
+        unitTests.all {
+            def localSdks = rootProject.file('../../android-tools/robolectric-sdks')
+            if(localSdks.exists()) {
+                systemProperty 'robolectric.offline', 'true'
+                systemProperty 'robolectric.dependency.dir', localSdks.absolutePath
+            }
+            systemProperty 'robolectric.dependency.repo.url', 'https://repo.maven.apache.org/maven2'
+        }
+    }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+}
+dependencies {
+    implementation 'androidx.webkit:webkit:1.12.1'
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.robolectric:robolectric:4.14'
+    androidTestImplementation 'androidx.test:runner:1.6.2'
+    androidTestImplementation 'androidx.test:core:1.6.1'
+    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+}
+tasks.register('syncWebAssets', Sync) {
+    from(rootProject.file('../dist'))
+    into(layout.buildDirectory.dir('generated/web-assets/www'))
+    include 'index.html', 'styles.css', 'data.js', 'core.js', 'flow.js', 'app.js',
+            'assets/rough.js', 'assets/study-note-hand.woff2',
+            'assets/OFL-Xiaolai.txt', 'assets/OFL-RoughJS-MIT.txt',
+            'assets/LICENSE-AndroidX-Apache-2.0.txt',
+            'assets/ink-dog-app-icon.png', 'assets/ink-dog-time.png',
+            'assets/ink-dog-low.png', 'assets/ink-dog-balanced.png',
+            'assets/ink-dog-quiet.png', 'assets/ink-dog-results.png',
+            'assets/ink-dog-empty.png', 'assets/ink-dog-favorites.png'
+    filesMatching('index.html') {
+        filter { line -> line.replace('<html lang="zh-CN" data-classroom-app>', '<html lang="zh-CN" data-classroom-app data-native-app="1.0.1">')
+                            .replace('<link rel="manifest" href="manifest.webmanifest">', '') }
+    }
+}
+tasks.named('preBuild') { dependsOn('syncWebAssets') }

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-CN" data-classroom-app>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#f4f4f2">
+  <meta name="description" content="河南大学明伦、金明校区空教室推荐，选择自习时间，找到适合你的教室。">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="等你下课">
+  <title>等你下课 · 河南大学</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='24' fill='%23171717'/%3E%3Cpath d='M28 78V23h44v55M48 25v50' stroke='white' stroke-width='5' fill='none'/%3E%3Ccircle cx='62' cy='52' r='3' fill='white'/%3E%3C/svg%3E">
+  <link rel="apple-touch-icon" href="assets/ink-dog-app-icon.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="styles.css?v=15">
+  <script src="data.js" defer></script>
+  <script src="core.js?v=11" defer></script>
+  <script src="flow.js" defer></script>
+  <script src="assets/rough.js" defer></script>
+  <script src="app.js?v=15" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="应用导航">
+      <a href="#home" class="brand" aria-label="等你下课首页"><span class="brand-mark" data-icon="door"></span><span><strong>等你下课</strong><small>去自习，好吗？</small></span></a>
+      <nav class="main-nav" aria-label="主页面">
+        <a href="#home" data-nav="study"><span data-icon="book"></span><span>自习</span></a>
+        <a href="#settings" data-nav="settings"><span data-icon="settings"></span><span>设置</span></a>
+      </nav>
+      <div class="sidebar-note"><span data-icon="book"></span><p>一个适合自习的地方，<br>一段属于你的时间。</p><small>2026—2027 · 第一学期</small></div>
+    </aside>
+    <div class="app-workspace">
+      <header class="app-header">
+        <a href="#home" class="mobile-brand"><span class="brand-mark" data-icon="door"></span><span class="brand-copy"><strong>等你下课</strong><small>去自习，好吗？</small></span></a>
+        <span class="desktop-context">河南大学 · 自习空间</span>
+        <button type="button" class="campus-button" data-action="campus" aria-haspopup="dialog"><span data-icon="pin"></span><span id="header-campus">金明校区</span><span data-icon="chevron-down"></span></button>
+      </header>
+      <main id="app-main" tabindex="-1" aria-label="等你下课应用"><div class="page-loading">正在读取教室课表…</div></main>
+    </div>
+  </div>
+  <dialog id="info-dialog" aria-labelledby="dialog-title"><div class="dialog-heading"><h2 id="dialog-title"></h2><button type="button" class="icon-button" data-action="close-dialog" aria-label="关闭"><span data-icon="close"></span></button></div><div id="dialog-content"></div></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <div id="page-status" class="sr-only" role="status" aria-live="polite"></div>
+  <noscript><p class="error">请在支持 JavaScript 的浏览器中打开，才能根据课表推荐教室。</p></noscript>
+</body>
+</html>

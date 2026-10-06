@@ -1,0 +1,6 @@
+# Preserve the exact bundled web resources used in the signed APK.
+* -text
+*.png binary
+*.apk binary
+*.jar binary
+*.woff2 binary

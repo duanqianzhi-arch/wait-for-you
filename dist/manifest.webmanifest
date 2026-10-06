@@ -1,0 +1,20 @@
+{
+  "id": "./",
+  "name": "等你下课 · 河南大学",
+  "short_name": "等你下课",
+  "description": "去自习，好吗？明伦与金明校区空教室推荐",
+  "start_url": "./#home",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f4f2",
+  "theme_color": "#f4f4f2",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "assets/ink-dog-app-icon.png",
+      "sizes": "1254x1254",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
