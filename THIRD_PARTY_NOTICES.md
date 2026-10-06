@@ -1,5 +1,7 @@
 # 第三方资源说明
 
+本项目自行编写的代码与文档采用根目录 [MIT License](LICENSE)。该许可不替代下列第三方许可，也不向学校课表数据、咖喱狗插画、应用图标或品牌标识授予 MIT 权利；具体范围见 README 的“许可证”一节。
+
 - Rough.js 4.6.6：https://github.com/rough-stuff/rough 。MIT，用于真实表单背后的轻微不规则 SVG 轮廓。完整许可：dist/assets/OFL-RoughJS-MIT.txt。
 - 小赖字体 v3.126：https://github.com/lxgw/kose-font 。SIL Open Font License 1.1。仅保留应用、课表名称和通用标点所需字形，并将子集字体名称改为 StudyNoteHand。完整许可：dist/assets/OFL-Xiaolai.txt。
 - Wired Elements：https://github.com/rough-stuff/wired-elements 。参考手绘交互外观，未引入该组件库。

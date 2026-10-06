@@ -1,6 +1,7 @@
 {
   "name": "dengni-xiake",
   "version": "1.0.1",
+  "license": "MIT",
   "private": true,
   "description": "河南大学明伦与金明校区自习教室推荐",
   "scripts": {

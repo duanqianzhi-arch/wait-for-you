@@ -146,6 +146,13 @@ python import_schedule.py "新课表.xls"
 - [小赖字体](https://github.com/lxgw/kose-font)：使用 OFL 许可字体的项目字形子集。
 
 代码与插画在 AI 辅助下迭代实现。以上同类项目作为思路与介绍方式的参考，不将其项目代码作为本项目源码发布。
-项目暂未选择自身的开源许可证；第三方许可及来源见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)，完整许可文件保留在 `dist/assets/`。
+
+## 许可证
+
+本项目自行编写的代码与文档采用 [MIT License](LICENSE)。允许使用、修改、分发与商用，使用时需保留版权声明和许可证全文。
+
+第三方代码、字体及依赖继续遵循各自原有许可证，详见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)；完整许可文件保留在 `dist/assets/`。
+
+MIT 授权不包含学校课表数据（`dist/data.js`）、咖喱狗插画与应用图标（`dist/assets/ink-dog-*.png`），以及应用名称与品牌标识；界面截图中的上述素材也不因截图收录而获得 MIT 授权。它们随当前应用提供，不视为授予独立再利用、再分发或品牌使用的权利。需要另行使用时，请先确认相应权利和授权。
 
 问题或建议欢迎通过仓库 Issues 反馈。反馈查询问题时，请提供校区、日期、时段和偏好，并说明课表结果与现场情况。
