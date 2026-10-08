@@ -20,6 +20,7 @@ public class TimetableImportActivity extends Activity {
     private final Handler handler=new Handler(Looper.getMainLooper());
     private int generation,attempts;
     private boolean delivered,destroyed;
+    private boolean closing,cookieClearing;
     private String extractor;
 
     @Override public void onCreate(Bundle state){
@@ -80,7 +81,13 @@ public class TimetableImportActivity extends Activity {
             }catch(Exception invalid){status.setText("未能识别完整课表，请重试。原有课表未改变。");}
         });
     }
-    protected void onParsed(JSONObject raw){status.setText("已读取课表，等待应用预览确认。");}
+    protected void onParsed(JSONObject raw){
+        try{
+            String token=new TimetableStore(this).stageImport(raw);
+            setResult(RESULT_OK,new android.content.Intent().putExtra("importToken",token));
+            finish();
+        }catch(Exception invalid){delivered=false;status.setText("未能保存导入预览，请重试；原有课表未改变。");}
+    }
     private String readAsset(String path)throws Exception{
         try(InputStream input=getAssets().open(path);ByteArrayOutputStream out=new ByteArrayOutputStream()){
             byte[] buffer=new byte[4096];int n;while((n=input.read(buffer))!=-1)out.write(buffer,0,n);
@@ -93,6 +100,19 @@ public class TimetableImportActivity extends Activity {
         if(TimetableImportPolicy.acceptsNavigation(browser.getUrl()))browser.evaluateJavascript("try{localStorage.clear();sessionStorage.clear();}catch(e){}",null);
         WebStorage.getInstance().deleteOrigin("https://xk.henu.edu.cn");
         CookieManager.getInstance().removeAllCookies(null);browser.clearCache(true);browser.clearHistory();browser.clearFormData();
+    }
+    @Override public void finish(){
+        if(closing)return;closing=true;generation++;handler.removeCallbacksAndMessages(null);
+        Runnable cleanup=()->{
+            if(cookieClearing||destroyed)return;cookieClearing=true;
+            WebStorage.getInstance().deleteOrigin("https://xk.henu.edu.cn");
+            if(browser!=null){browser.clearCache(true);browser.clearHistory();browser.clearFormData();}
+            CookieManager.getInstance().removeAllCookies(removed->{if(!destroyed)TimetableImportActivity.super.finish();});
+        };
+        if(browser!=null&&TimetableImportPolicy.acceptsNavigation(browser.getUrl())){
+            browser.evaluateJavascript("try{localStorage.clear();sessionStorage.clear();}catch(e){}",value->cleanup.run());
+            handler.postDelayed(cleanup,2000);
+        }else cleanup.run();
     }
     @Override protected void onDestroy(){destroyed=true;generation++;handler.removeCallbacksAndMessages(null);clearSchoolSession();if(browser!=null){browser.destroy();browser=null;}super.onDestroy();}
 }

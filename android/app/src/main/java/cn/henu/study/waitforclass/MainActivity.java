@@ -28,6 +28,7 @@ public class MainActivity extends Activity {
     private WebView webView;
     private FrameLayout root;
     private boolean handlingBack;
+    private TimetableController timetableController;
 
     @Override public void onCreate(Bundle state){
         super.onCreate(state);
@@ -78,6 +79,8 @@ public class MainActivity extends Activity {
                 if(request.isForMainFrame())runOnUiThread(()->showExplanation("包内页面未能打开，请关闭应用后重试；仍有问题时请重新安装测试包。"));
             }
         });
+        timetableController=new TimetableController(this,webView,new TimetableStore(this));
+        timetableController.attach();
         root.addView(webView,new FrameLayout.LayoutParams(-1,-1));
         if(state==null || webView.restoreState(state)==null)webView.loadUrl(START_URL);
     }
@@ -86,6 +89,10 @@ public class MainActivity extends Activity {
         try { startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(url))); }
         catch(ActivityNotFoundException unavailable){Toast.makeText(this,"请用浏览器打开 henu-study.pages.dev 查看新版本。",Toast.LENGTH_LONG).show();}
         return true;
+    }
+    @Override protected void onActivityResult(int requestCode,int resultCode,Intent data){
+        super.onActivityResult(requestCode,resultCode,data);
+        if(requestCode==TimetableController.IMPORT_REQUEST&&timetableController!=null)timetableController.importResult(resultCode,data);
     }
     private static WebResourceResponse rejected(int status,String reason){
         return new WebResourceResponse("text/plain","UTF-8",status,reason,Collections.emptyMap(),new ByteArrayInputStream(new byte[0]));
