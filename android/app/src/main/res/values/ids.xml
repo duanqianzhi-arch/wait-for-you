@@ -1,1 +1,1 @@
-<resources><item name="main_webview" type="id" /></resources>
+<resources><item name="main_webview" type="id" /><item name="timetable_import_webview" type="id" /></resources>

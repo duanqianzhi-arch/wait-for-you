@@ -1,0 +1,30 @@
+const assert=require('node:assert/strict'),fs=require('node:fs');
+const {JSDOM}=require('jsdom');
+const adapter=fs.existsSync('./dist/henu-schedule-adapter.js')?require('./dist/henu-schedule-adapter.js'):{};
+assert.equal(typeof adapter.extract,'function','school DOM adapter is missing');
+const headers=['上课班级代码','上课班级名称','课程','总学时','学分','修读性质','任课教师','选课状态','是否跨学科','教材','上课时间地点','备注'];
+const values=['G-001','不应采集','[12345678]示例课程','36','2','初修','不应采集','选中','否','否','1-18周 三[3-5] 示例室',''];
+function html(h=headers,v=values,count=1){return `<p>河南大学学生个人课表 2026-2027学年第一学期</p><p>课程门数：${count}</p><table><tbody><tr>${h.map(x=>`<td>${x}</td>`).join('')}</tr><tr>${v.map(x=>`<td>${x}</td>`).join('')}<td style="display:none">hidden</td><td style="display:none">hidden</td><td style="display:none">hidden</td><td style="display:none">hidden</td></tr></tbody></table><p>第 1 页 共 1 页</p>`;}
+function doc(body=html(),url='https://xk.henu.edu.cn/wsxk/xkjg.ckdgxsxdkchj_data10319.jsp?params=synthetic'){return new JSDOM(body,{url}).window.document;}
+const result=adapter.extract(doc());
+assert.equal(result.complete,true);
+assert.equal(result.declaredCourseCount,1);
+assert.deepEqual(result.rows,[{courseText:'[12345678]示例课程',teachingGroupCode:'G-001',selectionStatus:'选中',scheduleText:'1-18周 三[3-5] 示例室'}]);
+assert.equal(JSON.stringify(result).includes('不应采集'),false);
+const reversed=adapter.extract(doc(html([...headers].reverse(),[...values].reverse())));
+assert.deepEqual(reversed.rows,result.rows);
+assert.equal(adapter.extract(doc('<form><input type="password"></form>','https://xk.henu.edu.cn/cas/login.action')).errorCode,'not_timetable');
+assert.equal(adapter.extract(doc(html().replace('共 1 页','共 2 页'))).errorCode,'incomplete_table');
+assert.equal(adapter.extract(doc(html(headers,values,2))).errorCode,'incomplete_table');
+assert.equal(adapter.extract(doc(html().replace('2026-2027','2025-2026'))).errorCode,'unsupported_semester');
+assert.equal(adapter.extract(doc(html(), 'https://xk.henu.edu.cn.evil.example/wsxk/xkjg.ckdgxsxdkchj_data10319.jsp')).errorCode,'not_timetable');
+assert.equal(adapter.extract(doc(html(headers.map(x=>x==='课程'?'科目':x)))).errorCode,'unrecognized_table');
+const duplicateHeaders=[...headers];duplicateHeaders[1]='课程';
+assert.equal(adapter.extract(doc(html(duplicateHeaders))).errorCode,'unrecognized_table');
+const blank=adapter.extract(doc(html(headers,values.map((v,i)=>i===10?'':v))));
+assert.equal(blank.rows[0].scheduleText,'');
+const outer=doc('<iframe id="frmReport" src="/wsxk/xkjg.ckdgxsxdkchj_data10319.jsp?params=synthetic"></iframe>','https://xk.henu.edu.cn/student/xkjg.wdkb.jsp?menucode=S20301');
+const nested=outer.querySelector('iframe').contentDocument;
+nested.open();nested.write(html());nested.close();
+assert.deepEqual(adapter.extract(outer).rows,result.rows);
+console.log('PASS: Henu current table, hidden columns, nested document, complete import and source boundary');

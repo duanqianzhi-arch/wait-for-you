@@ -29,7 +29,7 @@ android {
     testOptions {
         unitTests.includeAndroidResources = true
         unitTests.all {
-            def localSdks = rootProject.file('../../android-tools/robolectric-sdks')
+            def localSdks = rootProject.file(providers.gradleProperty('studyRobolectricSdks').getOrElse('../../android-tools/robolectric-sdks'))
             if(localSdks.exists()) {
                 systemProperty 'robolectric.offline', 'true'
                 systemProperty 'robolectric.dependency.dir', localSdks.absolutePath
@@ -50,7 +50,7 @@ dependencies {
 tasks.register('syncWebAssets', Sync) {
     from(rootProject.file('../dist'))
     into(layout.buildDirectory.dir('generated/web-assets/www'))
-    include 'index.html', 'styles.css', 'data.js', 'core.js', 'flow.js', 'app.js',
+    include 'index.html', 'styles.css', 'data.js', 'core.js', 'flow.js', 'app.js', 'henu-schedule-adapter.js',
             'assets/rough.js', 'assets/study-note-hand.woff2',
             'assets/OFL-Xiaolai.txt', 'assets/OFL-RoughJS-MIT.txt',
             'assets/LICENSE-AndroidX-Apache-2.0.txt',
