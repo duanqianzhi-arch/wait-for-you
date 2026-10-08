@@ -7,15 +7,16 @@ async function run(){
   const raw={adapterVersion:'fixture',semester:'2026-2027-1',complete:true,declaredCourseCount:1,rows:[{courseText:'[1234]<script>课程</script>',teachingGroupCode:'anonymous',selectionStatus:'选中',scheduleText:'1-18周 四[11-13]'}]};
   const sample=model.normalizeImport(raw).timetable;
   const dom=new JSDOM('<main></main>',{url:'https://appassets.androidplatform.net/assets/www/index.html'}),host=dom.window.document.querySelector('main');
-  let saved=null,listener,failSave=false,imports=0,route='timetable',today='2026-10-08';
+  let saved=null,listener,failSave=false,imports=0,route='timetable',today='2026-10-08',pinSupported=true;const pinKinds=[],toasts=[];
   const native={supported:true,subscribe:fn=>{listener=fn;},request:async(action,payload)=>{
     if(action==='load')return saved;
     if(action==='import'){imports++;return null;}
     if(action==='save'){if(failSave)throw Error('storage_error');saved=JSON.parse(JSON.stringify(payload));return saved;}
     if(action==='clear'){saved=null;return null;}
+    if(action==='widget'){pinKinds.push(payload.kind);return {requested:pinSupported};}
   }};
   let ui;const render=()=>{host.innerHTML=ui.render(route);};
-  ui=createTimetableUI({core:{...core,chinaToday:()=>today},native,renderHost:render,navigate:r=>{route=r;render();},toast:()=>{}});
+  ui=createTimetableUI({core:{...core,chinaToday:()=>today},native,renderHost:render,navigate:r=>{route=r;render();},toast:s=>toasts.push(s)});
   await ui.ready;render();
   function click(action){const b=host.querySelector(`[data-timetable-action="${action}"]`);assert(b,action);assert.equal(ui.handleAction(b),true);return tick();}
   assert(host.textContent.includes('从教务系统导入'));await click('import');assert.equal(imports,1);
@@ -24,6 +25,8 @@ async function run(){
   await click('cancel-preview');assert.equal(saved,null);
   listener({event:'import-ready',payload:raw});await tick();await click('save-preview');assert.equal(saved.courses.length,1);
   assert.equal(route,'timetable');assert(host.textContent.includes('第 6 周'));assert(host.textContent.includes('19:10'));assert(host.textContent.includes('21:40'));assert(host.textContent.includes('地点待补充'));
+  await click('widget-choice');await click('pin-today');assert.deepEqual(pinKinds,['today']);assert(toasts.at(-1).includes('确认'));assert(!toasts.at(-1).includes('已添加'));
+  pinSupported=false;await click('pin-week');assert.deepEqual(pinKinds,['today','week']);assert(host.textContent.includes('长按桌面'));pinSupported=true;
   const spanning=host.querySelector('[data-timetable-action="course"]');
   assert.equal(spanning.style.gridRow,'12 / 15','11–13 period course must occupy all three rows');
   assert.equal(host.querySelector('[data-timetable-action="zoom-out"]').disabled,true);

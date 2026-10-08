@@ -42,8 +42,11 @@ final class TimetableController {
             Object payload=JSONObject.NULL;
             switch(action){
                 case "load":JSONObject table=store.load();payload=table==null?JSONObject.NULL:table;break;
-                case "save":store.save(request.getJSONObject("payload"));payload=store.load();break;
-                case "clear":store.clear();break;
+                case "save":store.save(request.getJSONObject("payload"));payload=store.load();TimetableWidgets.refreshAll(activity);break;
+                case "clear":store.clear();TimetableWidgets.refreshAll(activity);break;
+                case "widget":
+                    JSONObject widget=request.getJSONObject("payload");TimetableSchema.keys(widget,"kind");
+                    payload=new JSONObject().put("requested",TimetableWidgets.requestPin(activity,TimetableSchema.text(widget,"kind",5,false)));break;
                 case "import":
                     if(importing)throw new JSONException("import_in_progress");
                     activity.startActivityForResult(new Intent(activity,TimetableImportActivity.class),IMPORT_REQUEST);importing=true;break;

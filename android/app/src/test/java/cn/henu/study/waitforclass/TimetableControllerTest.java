@@ -10,6 +10,21 @@ import android.webkit.WebView;
 import org.json.*;
 @RunWith(RobolectricTestRunner.class) @Config(sdk=28)
 public class TimetableControllerTest {
+    @Test public void widgetRequestsAndRefreshStayInsideTrustedPrivateFlow()throws Exception {
+        Activity activity=Robolectric.buildActivity(Activity.class).setup().get();WebView web=new WebView(activity);web.loadUrl(MainActivity.START_URL);
+        TimetableStore store=new TimetableStore(activity);store.clear();store.save(TimetableStoreTest.sample());TimetableController controller=new TimetableController(activity,web,store);
+        String request="{\"id\":\"widget-1\",\"action\":\"widget\",\"payload\":{\"kind\":\"today\"}}",origin="https://appassets.androidplatform.net";
+        android.appwidget.AppWidgetManager manager=android.appwidget.AppWidgetManager.getInstance(activity);org.robolectric.Shadows.shadowOf(manager).setRequestPinAppWidgetSupported(true);
+        assertFalse(controller.handle(request,"https://xk.henu.edu.cn",true).getBoolean("ok"));assertFalse(controller.handle(request,origin,false).getBoolean("ok"));
+        assertTrue(controller.handle(request,origin,true).getJSONObject("payload").getBoolean("requested"));
+        assertFalse(controller.handle(request.replace("today","other"),origin,true).getBoolean("ok"));
+        org.robolectric.shadows.ShadowAppWidgetManager shadow=org.robolectric.Shadows.shadowOf(manager);int id=shadow.createWidget(TodayWidgetProvider.class,R.layout.widget_today);
+        java.io.File path=new java.io.File(activity.getFilesDir(),"personal-timetable-v1.json");TimetableStore broken=new TimetableStore(path,(out,bytes)->{throw new java.io.IOException("disk failure");});
+        TimetableController failed=new TimetableController(activity,web,broken);JSONObject unsaved=TimetableStoreTest.sample();unsaved.getJSONArray("courses").getJSONObject(0).put("name","Never saved");
+        assertFalse(failed.handle(new JSONObject().put("id","s").put("action","save").put("payload",unsaved).toString(),origin,true).getBoolean("ok"));assertEquals("Example",store.load().getJSONArray("courses").getJSONObject(0).getString("name"));
+        assertTrue(controller.handle("{\"id\":\"c\",\"action\":\"clear\"}",origin,true).getBoolean("ok"));
+        assertTrue(((android.widget.TextView)shadow.getViewFor(id).findViewById(R.id.widget_message)).getText().toString().contains("先在 App 导入"));web.destroy();
+    }
     @Test public void onlyPackagedMainFrameCanUseTimetableStorage()throws Exception {
         Activity activity=Robolectric.buildActivity(Activity.class).setup().get();
         WebView web=new WebView(activity);web.loadUrl(MainActivity.START_URL);

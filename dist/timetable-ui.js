@@ -43,7 +43,7 @@
   }
   function createTimetableUI({core,native,renderHost,navigate,toast}){
     let activeRoute='timetable';
-    const state={table:null,loaded:!native.supported,week:1,current:true,busy:false,error:'',preview:null,previewValues:{},editDraft:null,clearConfirm:false,today:core.chinaToday(),zoom:1};
+    const state={table:null,loaded:!native.supported,week:1,current:true,busy:false,error:'',preview:null,previewValues:{},editDraft:null,clearConfirm:false,today:core.chinaToday(),zoom:1,widgetChoice:false,widgetHelp:false};
     let pinch=null,suppressCourseUntil=0;
     const button=(action,label,extra='',cls='secondary-button')=>`<button type="button" class="${cls}" data-timetable-action="${action}" ${extra}>${label}</button>`;
     const courseButton=(course,body=escape(course.name),cls='timetable-course')=>button('course',body,`data-course="${escape(course.key)}"`,cls);
@@ -81,7 +81,8 @@
       }).join('');
       const grid=`<div class="timetable-zoom-controls" aria-label="课表缩放"><span>双指缩放 · 点课程可修改</span>${button('zoom-out','−',`aria-label="缩小课表" ${state.zoom<=1?'disabled':''}`)}<output data-timetable-zoom>${Math.round(state.zoom*100)}%</output>${button('zoom-in','+',`aria-label="放大课表" ${state.zoom>=2.2?'disabled':''}`)}${button('zoom-fit','适应屏幕')}</div><div class="timetable-scroll" tabindex="0" role="region" aria-label="第 ${state.week} 周课表，可缩放及滑动"><div class="weekly-timetable" style="--timetable-zoom:${state.zoom}"><span class="timetable-day timetable-corner" aria-hidden="true" style="grid-column:1;grid-row:1">节</span>${days.map((day,i)=>`<div class="timetable-day ${dates[i]===core.chinaToday()?'is-today':''}" style="grid-column:${i+2};grid-row:1">周${day}<small>${dates[i].slice(5).replace('-','/')}</small></div>`).join('')}${rows}${blocks}</div></div>`;
       const others=table.courses.filter(c=>c.unscheduled||c.pendingSchedules.length||c.localOnly);
-      return `<div class="timetable-week-heading"><h1 tabindex="-1">我的课表</h1><div class="timetable-toolbar">${button('previous-week','←',`aria-label="上一周" ${state.week<=1||state.busy?'disabled':''}`)}<strong>第 ${state.week} 周</strong>${button('next-week','→',`aria-label="下一周" ${state.week>=table.maxWeek||state.busy?'disabled':''}`)}${button('current-week','本周',state.busy?'disabled':'')}</div></div>`+error()+`<p class="timetable-date-notice">${notice}</p>${grid}${entries.length?'':'<p class="timetable-no-course">这一周没有已排课的课程。</p>'}${others.length?`<details class="timetable-other"><summary>待完善或本地保留的课程（${others.length}）</summary><div class="timetable-other-list">${others.map(c=>courseButton(c)).join('')}</div></details>`:''}<div class="timetable-actions">${button('import','重新同步',state.busy?'disabled':'')}${button('clear','删除个人课表',state.busy?'disabled':'')}</div><p class="helper">学校记录更新后，请主动同步。个人课表独立于右上角的自习校区。</p>${state.clearConfirm?`<section class="timetable-confirm" role="region" aria-label="确认删除个人课表"><p>删除这台手机的个人课表和本地修改？教室收藏会保留。</p>${button('confirm-clear','确认删除',state.busy?'disabled':'')}${button('cancel-clear','取消',state.busy?'disabled':'')}</section>`:''}`;
+      const widgetControls=`<div class="timetable-widget-controls">${button('widget-choice','添加桌面组件',`aria-expanded="${state.widgetChoice}" ${state.busy?'disabled':''}`)}${state.widgetChoice?`<section aria-label="选择桌面组件"><p>留在桌面，抬眼就能看见。</p><div class="timetable-actions">${button('pin-today','今日课程',state.busy?'disabled':'')}${button('pin-week','本周课表',state.busy?'disabled':'')}</div><p class="helper">今日看下一节课，本周看七天安排。添加后可长按组件调整大小。</p></section>`:''}${state.widgetHelp?'<p role="status" class="helper">也可以长按桌面空白处 → 添加小部件 → 等你下课，选择“今日课程”或“本周课表”。</p>':''}</div>`;
+      return `<div class="timetable-week-heading"><h1 tabindex="-1">我的课表</h1><div class="timetable-toolbar">${button('previous-week','←',`aria-label="上一周" ${state.week<=1||state.busy?'disabled':''}`)}<strong>第 ${state.week} 周</strong>${button('next-week','→',`aria-label="下一周" ${state.week>=table.maxWeek||state.busy?'disabled':''}`)}${button('current-week','本周',state.busy?'disabled':'')}</div></div>`+error()+`<p class="timetable-date-notice">${notice}</p>${grid}${widgetControls}${entries.length?'':'<p class="timetable-no-course">这一周没有已排课的课程。</p>'}${others.length?`<details class="timetable-other"><summary>待完善或本地保留的课程（${others.length}）</summary><div class="timetable-other-list">${others.map(c=>courseButton(c)).join('')}</div></details>`:''}<div class="timetable-actions">${button('import','重新同步',state.busy?'disabled':'')}${button('clear','删除个人课表',state.busy?'disabled':'')}</div><p class="helper">学校记录更新后，请主动同步。个人课表独立于右上角的自习校区。</p>${state.clearConfirm?`<section class="timetable-confirm" role="region" aria-label="确认删除个人课表"><p>删除这台手机的个人课表和本地修改？教室收藏会保留。</p>${button('confirm-clear','确认删除',state.busy?'disabled':'')}${button('cancel-clear','取消',state.busy?'disabled':'')}</section>`:''}`;
     }
     function detail(route){
       let key;try{key=decodeURIComponent(route.slice('timetable/course/'.length));}catch(_){key='';}
@@ -125,6 +126,13 @@
       state.error='';
       if(action==='course'){if(Date.now()>=suppressCourseUntil)navigate('timetable/course/'+encodeURIComponent(target.dataset.course));return;}
       if(action.startsWith('zoom-')){setZoom(action==='zoom-fit'?1:state.zoom+(action==='zoom-in'?.2:-.2),target.ownerDocument);return;}
+      if(action==='widget-choice'){state.widgetChoice=!state.widgetChoice;repaint();return;}
+      if(action==='pin-today'||action==='pin-week'){
+        state.busy=true;state.widgetHelp=false;repaint();
+        try{const reply=await native.request('widget',{kind:action==='pin-today'?'today':'week'});if(reply?.requested===true)toast('请在手机桌面确认添加组件。');else state.widgetHelp=true;}
+        catch(_){state.widgetHelp=true;toast('暂时无法请求添加，请从桌面小部件菜单添加。');}
+        finally{state.busy=false;repaint();}return;
+      }
       if(action==='back'||action==='cancel-preview'){state.preview=null;state.editDraft=null;navigate('timetable');return;}
       if(action==='previous-week'||action==='next-week'){state.week=Math.max(1,Math.min(18,state.week+(action==='next-week'?1:-1)));state.current=false;repaint();return;}
       if(action==='current-week'){setCurrent();repaint();return;}
