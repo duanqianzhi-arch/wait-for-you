@@ -36,4 +36,13 @@ public class TimetableStoreTest {
         assertThrows(Exception.class,()->store.consumeStagedImport("../../private"));
         assertThrows(Exception.class,()->store.stageImport(raw.put("cookie","forbidden")));
     }
+    @Test public void retainedLocalCoursePersistsLatestSchoolBaseline()throws Exception {
+        TimetableStore store=new TimetableStore(RuntimeEnvironment.getApplication());JSONObject value=sample();
+        JSONObject course=value.getJSONArray("courses").getJSONObject(0),school=new JSONObject(course.toString());
+        school.getJSONArray("meetings").getJSONObject(0).put("day",6).put("location","School updated room");
+        course.put("localOnly",true).put("schoolRecord",school);store.save(value);
+        assertEquals(6,store.load().getJSONArray("courses").getJSONObject(0).getJSONObject("schoolRecord").getJSONArray("meetings").getJSONObject(0).getInt("day"));
+        school.put("password","forbidden");assertThrows(Exception.class,()->store.save(value));
+        school.remove("password");school.put("key","another-course");assertThrows(Exception.class,()->store.save(value));store.clear();
+    }
 }

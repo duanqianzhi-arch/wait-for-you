@@ -80,7 +80,15 @@
     for(const c of value.courses){
       if(!isObject(c)||!text(c.key,400,false)||!text(c.code,64,false)||!text(c.teachingGroupCode,128,false)||!text(c.name,120,false)||keys.has(c.key)||!Array.isArray(c.meetings)||typeof c.unscheduled!=='boolean'||c.unscheduled!==(c.meetings.length===0)){errors.push('invalid_course');continue;}
       keys.add(c.key);byKey.set(c.key,c);
-      if(!onlyKeys(c,['key','code','teachingGroupCode','name','meetings','pendingSchedules','unscheduled','localOnly'])||(c.localOnly!==undefined&&typeof c.localOnly!=='boolean'))errors.push('invalid_course_fields');
+      if(!onlyKeys(c,['key','code','teachingGroupCode','name','meetings','pendingSchedules','unscheduled','localOnly','schoolRecord'])||(c.localOnly!==undefined&&typeof c.localOnly!=='boolean'))errors.push('invalid_course_fields');
+      if(c.localOnly===true){
+        if(!Object.prototype.hasOwnProperty.call(c,'schoolRecord'))errors.push('missing_school_baseline');
+        else if(c.schoolRecord!==null){
+          const s=c.schoolRecord;
+          if(!isObject(s)||s.key!==c.key||Object.prototype.hasOwnProperty.call(s,'schoolRecord')||Object.prototype.hasOwnProperty.call(s,'localOnly')||!validateTimetable({...value,courses:[s],overrides:[]}).ok)errors.push('invalid_school_baseline');
+          else meetingCount+=s.meetings.length;
+        }
+      }else if(Object.prototype.hasOwnProperty.call(c,'schoolRecord'))errors.push('unexpected_school_baseline');
       if(!Array.isArray(c.pendingSchedules)||c.pendingSchedules.some(s=>!text(s,10000,false)))errors.push('invalid_pending_schedule');
       const mKeys=new Set();
       for(const m of c.meetings){
@@ -147,7 +155,14 @@
   }
   function restoreEdit(timetable,courseKey,meetingKey){
     checked(timetable);baseFor(timetable,courseKey,meetingKey);
+    if(timetable.courses.find(c=>c.key===courseKey).localOnly)return restoreCourse(timetable,courseKey);
     const out=clone(timetable);out.overrides=out.overrides.filter(o=>!(o.courseKey===courseKey&&o.meetingKey===meetingKey));
+    out.revision++;return checked(out);
+  }
+  function restoreCourse(timetable,courseKey){
+    checked(timetable);const course=baseFor(timetable,courseKey,null),out=clone(timetable);
+    out.overrides=out.overrides.filter(o=>o.courseKey!==courseKey);
+    if(course.localOnly){out.courses=out.courses.filter(c=>c.key!==courseKey);if(course.schoolRecord)out.courses.push(clone(course.schoolRecord));}
     out.revision++;return checked(out);
   }
   function replaceWithNewTable(next){const out=clone(checked(next));out.overrides=[];return out;}
@@ -164,6 +179,10 @@
       const overrides=previous.overrides.filter(o=>o.courseKey===course.key);
       if(!overrides.length)continue;
       const fresh=draft.courses.find(c=>c.key===course.key);
+      if(course.localOnly&&same(course.schoolRecord,fresh||null)){
+        draft.courses=draft.courses.filter(c=>c.key!==course.key);draft.courses.push(clone(course));
+        for(const override of overrides)carryOverride(draft,override);continue;
+      }
       if(!fresh){conflict('removed',course,overrides);continue;}
       const missing=overrides.some(o=>o.meetingKey!==null&&!fresh.meetings.some(m=>m.key===o.meetingKey));
       // Changed/split arrangements have no reliable one-to-one identity. Ask once for the whole course.
@@ -183,12 +202,13 @@
       if(choice==='school')continue;
       if(conflict.kind==='removed'||conflict.kind==='arrangements'){
         draft.courses=draft.courses.filter(c=>c.key!==conflict.course.key);
-        draft.courses.push({...clone(conflict.course),localOnly:true});
+        const retained=clone(conflict.course);delete retained.localOnly;delete retained.schoolRecord;
+        draft.courses.push({...retained,localOnly:true,schoolRecord:clone(conflict.newCourse)});
         draft.overrides=draft.overrides.filter(o=>o.courseKey!==conflict.course.key);
       }
       for(const override of conflict.overrides)carryOverride(draft,override);
     }
     return checked(draft);
   }
-  return {normalizeImport,validateTimetable,coursesForWeek,weekForDate,effectiveCourse,applyEdit,restoreEdit,prepareSync,resolveSync,replaceWithNewTable};
+  return {normalizeImport,validateTimetable,coursesForWeek,weekForDate,effectiveCourse,applyEdit,restoreEdit,restoreCourse,prepareSync,resolveSync,replaceWithNewTable};
 });

@@ -40,6 +40,7 @@
     if(matches.length!==1)return {errorCode:'unrecognized_table'};
     const {table,cells}=matches[0],index=name=>cells.indexOf(name),rows=[];
     for(const row of Array.from(table.rows).slice(1)){
+      if(required.some(name=>!row.cells[index(name)]))return {errorCode:'incomplete_table'};
       const value=name=>row.cells[index(name)]?.textContent?.trim();
       if(!value('课程'))return {errorCode:'incomplete_table'};
       const status=value('选课状态');

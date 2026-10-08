@@ -379,6 +379,7 @@
     state[field]=target.value;currentQuery=null;queryError='';
   }
   document.addEventListener('input',event=>{
+    if(timetableUI?.handleInput(event.target))return;
     const target=event.target;
     if(target.dataset.boundary) {
       Object.assign(state,flow.moveBoundary(state.start,state.end,target.dataset.boundary,target.value));
@@ -386,6 +387,7 @@
     } else if(target.matches('[data-field]')) {readField(target);refreshTimeUI();persist();}
   });
   document.addEventListener('change',event=>{
+    if(timetableUI?.handleInput(event.target))return;
     const target=event.target;
     if(target.name==='mode'&&Object.prototype.hasOwnProperty.call(modes,target.value)) {state.mode=target.value;visibleCount=8;persist();return;}
     if(target.matches('[data-field]')) {readField(target);refreshTimeUI();persist();}

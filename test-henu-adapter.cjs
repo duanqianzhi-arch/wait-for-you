@@ -23,6 +23,8 @@ const duplicateHeaders=[...headers];duplicateHeaders[1]='课程';
 assert.equal(adapter.extract(doc(html(duplicateHeaders))).errorCode,'unrecognized_table');
 const blank=adapter.extract(doc(html(headers,values.map((v,i)=>i===10?'':v))));
 assert.equal(blank.rows[0].scheduleText,'');
+const truncated=doc(html());const shortRow=truncated.querySelector('table').rows[1];while(shortRow.cells.length>10)shortRow.deleteCell(10);
+assert.equal(adapter.extract(truncated).errorCode,'incomplete_table','missing schedule cell must not become an empty schedule');
 const outer=doc('<iframe id="frmReport" src="/wsxk/xkjg.ckdgxsxdkchj_data10319.jsp?params=synthetic"></iframe>','https://xk.henu.edu.cn/student/xkjg.wdkb.jsp?menucode=S20301');
 const nested=outer.querySelector('iframe').contentDocument;
 nested.open();nested.write(html());nested.close();

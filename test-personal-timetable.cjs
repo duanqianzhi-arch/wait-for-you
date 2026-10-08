@@ -93,11 +93,18 @@ assert.equal(api.coursesForWeek(accepted,5).find(x=>x.course.key===c.key).meetin
 const moved=JSON.parse(JSON.stringify(schoolChanged));moved.courses[0].meetings[0]={...moved.courses[0].meetings[0],key:'new-key',day:6};
 const moveConflict=api.prepareSync(changed,moved);assert.equal(moveConflict.conflicts.length,1);
 assert.equal(api.coursesForWeek(api.resolveSync(moveConflict,{[moveConflict.conflicts[0].id]:'keep'}),5).filter(x=>x.course.key===c.key).length,1);
+const keptMoved=api.resolveSync(moveConflict,{[moveConflict.conflicts[0].id]:'keep'});
+assert.equal(typeof api.restoreCourse,'function','retained arrangements require restore to latest school baseline');
+const restoredMoved=api.restoreCourse(keptMoved,c.key);
+assert.equal(restoredMoved.courses.find(x=>x.key===c.key).meetings[0].day,6);
+assert.equal(restoredMoved.courses.find(x=>x.key===c.key).meetings[0].location,'学校更新的教室');
+assert.equal(api.prepareSync(keptMoved,moved).conflicts.length,0,'same school source must not repeat a resolved arrangement conflict');
 const split=JSON.parse(JSON.stringify(moved));split.courses[0].meetings.push({...split.courses[0].meetings[0],key:'split-second',day:7});
 assert.equal(api.prepareSync(changed,split).conflicts[0].kind,'arrangements');
 assert.equal(api.prepareSync(kept,schoolChanged).conflicts.length,0,'accepted keep decision must update sync baseline');
 const removed=JSON.parse(JSON.stringify(result.timetable));removed.courses.splice(0,1);
 const removal=api.prepareSync(changed,removed);assert.equal(removal.conflicts.length,1);
 const retained=api.resolveSync(removal,{[removal.conflicts[0].id]:'keep'});assert.equal(retained.courses.length,10);assert.equal(retained.courses.find(x=>x.key===c.key).localOnly,true);
+assert.equal(api.restoreCourse(retained,c.key).courses.length,9,'restoring latest school deletion must remove the retained local course');
 assert.equal(api.replaceWithNewTable(schoolChanged).overrides.length,0);
 console.log('PASS: personal timetable parsing, edits, restore, safe resync, changed/moved/deleted conflicts');

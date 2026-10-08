@@ -42,12 +42,16 @@ final class TimetableSchema {
         JSONArray courses=value.getJSONArray("courses"),overrides=value.getJSONArray("overrides");check(courses.length()<=500&&overrides.length()<=2500);
         Map<String,JSONObject> courseMap=new HashMap<>();int count=0;
         for(int i=0;i<courses.length();i++){
-            JSONObject c=courses.getJSONObject(i);keys(c,"key","code","teachingGroupCode","name","meetings","pendingSchedules","unscheduled","localOnly");
+            JSONObject c=courses.getJSONObject(i);keys(c,"key","code","teachingGroupCode","name","meetings","pendingSchedules","unscheduled","localOnly","schoolRecord");
             String key=text(c,"key",400,false);check(!courseMap.containsKey(key));courseMap.put(key,c);
             text(c,"code",64,false);text(c,"teachingGroupCode",128,false);text(c,"name",120,false);
             JSONArray meetings=c.getJSONArray("meetings"),pending=c.getJSONArray("pendingSchedules");check(pending.length()<=2000);count+=meetings.length();
             check(c.opt("unscheduled") instanceof Boolean&&c.getBoolean("unscheduled")== (meetings.length()==0));
             if(c.has("localOnly"))check(c.opt("localOnly") instanceof Boolean);
+            if(c.optBoolean("localOnly",false)){
+                check(c.has("schoolRecord"));Object record=c.get("schoolRecord");check(record==JSONObject.NULL||record instanceof JSONObject);
+                if(record instanceof JSONObject)count+=schoolRecord((JSONObject)record,key);
+            }else check(!c.has("schoolRecord"));
             for(int n=0;n<pending.length();n++)check(pending.get(n) instanceof String&&pending.getString(n).length()<=10000);
             Set<String> meetingKeys=new HashSet<>();
             for(int n=0;n<meetings.length();n++){
@@ -66,6 +70,20 @@ final class TimetableSchema {
             Iterator<String> names=patch.keys();while(names.hasNext())check(snapshot.has(names.next()));
             if(!courseLevel){int start=patch.has("startPeriod")?patch.getInt("startPeriod"):base.getInt("startPeriod");int end=patch.has("endPeriod")?patch.getInt("endPeriod"):base.getInt("endPeriod");check(end>=start);}
         }
+    }
+    private static int schoolRecord(JSONObject c,String expectedKey)throws JSONException{
+        keys(c,"key","code","teachingGroupCode","name","meetings","pendingSchedules","unscheduled");
+        check(expectedKey.equals(text(c,"key",400,false)));text(c,"code",64,false);text(c,"teachingGroupCode",128,false);text(c,"name",120,false);
+        JSONArray meetings=c.getJSONArray("meetings"),pending=c.getJSONArray("pendingSchedules");check(pending.length()<=2000);
+        check(c.opt("unscheduled") instanceof Boolean&&c.getBoolean("unscheduled")== (meetings.length()==0));
+        for(int i=0;i<pending.length();i++)check(pending.get(i) instanceof String&&pending.getString(i).length()<=10000);
+        Set<String> seen=new HashSet<>();
+        for(int i=0;i<meetings.length();i++){
+            JSONObject m=meetings.getJSONObject(i);keys(m,"key","day","weeks","startPeriod","endPeriod","location");
+            check(seen.add(text(m,"key",400,false)));number(m,"day",1,7);weeks(m.getJSONArray("weeks"));
+            number(m,"endPeriod",number(m,"startPeriod",1,13),13);text(m,"location",240,true);
+        }
+        return meetings.length();
     }
     private static void validatePatch(JSONObject patch,boolean courseLevel)throws JSONException{
         if(courseLevel)keys(patch,"name","note");else keys(patch,"location","note","day","weeks","startPeriod","endPeriod");

@@ -78,7 +78,21 @@
       const schoolSummary=c=>c.newCourse?`<p class="helper">学校最新记录：${escape(c.newCourse.name)}</p>${c.newCourse.meetings.map(m=>`<p class="helper">周${days[m.day-1]} · ${m.startPeriod}–${m.endPeriod} 节 · 第 ${m.weeks.join(',')} 周 · ${escape(m.location||'地点待补充')}</p>`).join('')}`:'<p class="helper">学校最新记录：这门课程已移除。</p>';
       return heading('确认导入','先看一眼，再把课表留在手机里。')+error()+`<form class="timetable-preview"><p><b>2026—2027 第一学期</b></p><p>${counts.courses} 门课程 · ${counts.meetings} 条安排 · ${counts.missingLocation} 条地点待补充</p><details><summary>查看课程名称</summary><ul>${timetable.courses.map(c=>`<li>${escape(c.name)}</li>`).join('')}</ul></details>${state.table?`<label class="field">这次导入<select name="import-mode"><option value="sync">同步当前课表，保护本地修改</option><option value="replace">替换为另一份课表，清除原修改</option></select></label><p class="helper">如果登录了另一个账号，请选择“替换为另一份课表”。</p>`:''}${issues.length?`<label class="timetable-ack"><input type="checkbox" name="ack-issues">有 ${issues.length} 条安排未识别。我知道它们不会出现在周课表里，可在课程详情查看原文字。</label>`:''}${prepared?.conflicts.length?`<div class="timetable-conflicts"><h2>需要你选择的变化</h2><p>同步时逐项选择；替换另一份课表会清除旧修改。</p>${prepared.conflicts.map(c=>`<fieldset><legend>${escape(c.courseName)}</legend><p>${{fields:'学校记录与本地修改都发生了变化。',removed:'学校新课表里没有这门课。',arrangements:'学校改变或拆分了安排，无法可靠对应原修改。'}[c.kind]}</p>${schoolSummary(c)}${c.overrides.map(o=>`<p class="helper">我的修改：${escape(Object.entries(o.patch).map(([k,v])=>({name:'名称',location:'地点',note:'备注',day:'星期',weeks:'教学周',startPeriod:'开始节次',endPeriod:'结束节次'}[k])+': '+String(v)).join('；'))}</p>`).join('')}<label><input type="radio" name="${c.id}" value="keep">${c.kind==='fields'?'保留我的修改':'保留我的原安排与修改'}</label><label><input type="radio" name="${c.id}" value="school">采用学校记录</label></fieldset>`).join('')}</div>`:''}<div class="timetable-actions">${button('save-preview','确认保存',state.busy?'disabled':'','primary-button')}${button('cancel-preview','取消',state.busy?'disabled':'')}</div></form>`;
     }
-    function render(route){activeRoute=route;return `<section class="page timetable-page" data-page="timetable" aria-busy="${state.busy}">${route==='timetable/import-preview'?preview():route.startsWith('timetable/course/')?detail(route):weekly()}</section>`;}
+    function render(route){
+      activeRoute=route;
+      let markup=route==='timetable/import-preview'?preview():route.startsWith('timetable/course/')?detail(route):weekly();
+      if(route==='timetable/import-preview'){
+        if(state.previewValues['import-mode']==='replace')markup=markup.replace('<option value="replace">','<option value="replace" selected>');
+        if(state.previewValues['ack-issues'])markup=markup.replace('name="ack-issues">','name="ack-issues" checked>');
+        for(const [id,value] of Object.entries(state.previewValues))if(/^conflict-\d+$/.test(id)&&['keep','school'].includes(value))markup=markup.replace(`name="${id}" value="${value}">`,`name="${id}" value="${value}" checked>`);
+      }
+      if(route.startsWith('timetable/course/')&&state.table){
+        let key='';try{key=decodeURIComponent(route.slice('timetable/course/'.length));}catch(_){}
+        const retained=state.table.courses.find(c=>c.key===key&&c.localOnly);
+        if(retained)markup+=`<section class="timetable-pending"><h2>学校最新记录</h2>${retained.schoolRecord?`<p>恢复学校记录会采用以下最新安排：</p>${retained.schoolRecord.meetings.map(m=>`<p>周${days[m.day-1]} · ${m.startPeriod}–${m.endPeriod} 节 · 第 ${m.weeks.join(',')} 周 · ${escape(m.location||'地点待补充')}</p>`).join('')}`:'<p>学校最新课表已移除这门课。恢复学校记录会移除这台手机上的保留课程及其修改。</p>'}</section>`;
+      }
+      return `<section class="page timetable-page" data-page="timetable" aria-busy="${state.busy}">${markup}</section>`;
+    }
     async function save(table){
       state.busy=true;state.error='';repaint();
       try{const result=await native.request('save',table);acceptTable(result);return true;}
@@ -102,11 +116,12 @@
         catch(_){state.error='删除失败，已有课表保持原样。';}finally{state.busy=false;repaint();}return;
       }
       if(action==='restore'){
-        let restored=clone(state.table);for(const o of state.table.overrides.filter(o=>o.courseKey===target.dataset.course))restored=model.restoreEdit(restored,o.courseKey,o.meetingKey);
+        const restored=model.restoreCourse(state.table,target.dataset.course);
         state.editDraft=null;if(await save(restored))toast('已恢复这门课的学校记录。');return;
       }
       if(action==='save-preview'){
         const form=target.closest('form'),values=new form.ownerDocument.defaultView.FormData(form);
+        state.previewValues=Object.fromEntries(values);
         if(state.preview.issues.length&&!values.has('ack-issues')){state.error='请先确认未识别安排的提示。';repaint();return;}
         let draft;
         try{draft=state.table&&values.get('import-mode')!=='replace'?model.resolveSync(model.prepareSync(state.table,state.preview.timetable),Object.fromEntries(values)):model.replaceWithNewTable(state.preview.timetable);}
@@ -115,6 +130,13 @@
       }
     }
     function handleAction(target){if(!target.dataset.timetableAction)return false;void perform(target.dataset.timetableAction,target).catch(()=>{state.busy=false;state.error='操作未完成，请重试。';repaint();});return true;}
+    function handleInput(target){
+      const form=target.closest('form');if(!form)return false;
+      const values=()=>Object.fromEntries(new form.ownerDocument.defaultView.FormData(form));
+      if(form.classList.contains('timetable-preview')){state.previewValues=values();return true;}
+      if(form.hasAttribute('data-timetable-form')){state.editDraft={key:form.dataset.course,values:values()};return true;}
+      return false;
+    }
     function parseWeeks(value){
       const weeks=new Set();for(const part of value.replace(/，/g,',').replace(/\s/g,'').split(',')){
         const match=part.match(/^(\d+)(?:-(\d+))?$/);if(!match)throw Error('invalid_weeks');
@@ -141,7 +163,7 @@
     }
     function handleBack(){if(state.preview||state.clearConfirm||activeRoute.startsWith('timetable/course/')){state.preview=null;state.clearConfirm=false;state.editDraft=null;navigate('timetable');return true;}return false;}
     function refreshToday(){const today=core.chinaToday();if(today!==state.today){state.today=today;if(state.current)setCurrent();repaint();}}
-    return {ready,render,handleAction,handleSubmit,handleBack,refreshToday};
+    return {ready,render,handleAction,handleInput,handleSubmit,handleBack,refreshToday};
   }
   return {createTimetableUI,createNativeBridge};
 });

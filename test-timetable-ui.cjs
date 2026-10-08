@@ -37,7 +37,7 @@ async function run(){
   const fresh={...raw,rows:raw.rows.map(r=>({...r,scheduleText:'1-18周 四[11-13] 学校新教室'}))};
   listener({event:'import-ready',payload:fresh});await tick();assert(host.textContent.includes('学校新教室'),'conflict preview must show the new school arrangement');await click('save-preview');assert.equal(saved.overrides.length,1,'unresolved conflicts must not overwrite');assert(host.textContent.includes('选择'));
   host.querySelector('input[value="keep"]').checked=true;await click('save-preview');assert.equal(model.coursesForWeek(saved,6)[0].meeting.location,'修正的教室');
-  listener({event:'import-ready',payload:fresh});await tick();host.querySelector('select[name="import-mode"]').value='replace';await click('save-preview');assert.equal(saved.overrides.length,0);
+  listener({event:'import-ready',payload:fresh});await tick();host.querySelector('select[name="import-mode"]').value='replace';failSave=true;await click('save-preview');assert.equal(host.querySelector('select[name="import-mode"]').value,'replace','failed replacement must preserve account mode');failSave=false;await click('save-preview');assert.equal(saved.overrides.length,0);
   await click('clear');assert(saved);await click('cancel-clear');assert(saved);await click('clear');await click('confirm-clear');assert.equal(saved,null);
   const web=createTimetableUI({core,native:{supported:false},renderHost:()=>{},navigate:()=>{},toast:()=>{}});assert(web.render('timetable').includes('浏览器'));assert(!web.render('timetable').includes('data-timetable-action="import"'));
   // Exercise the real request-ID client: unrelated replies cannot settle a write.
@@ -62,7 +62,11 @@ async function run(){
   w.document.querySelector('#info-dialog').close=()=>{};
   w.document.querySelector('#info-dialog').showModal=()=>{};w.document.querySelector('[data-action="campus"]').click();
   w.document.querySelector('[data-campus="明伦校区"]').click();assert.equal(w.document.querySelector('#header-campus').textContent,'明伦校区');assert(w.document.querySelector('[data-timetable-action="course"]'),'campus must not filter personal courses');
+  w.StudyTimetableBridge.onmessage({data:JSON.stringify({event:'import-ready',payload:raw})});await tick();
+  const mode=w.document.querySelector('select[name="import-mode"]');mode.value='replace';mode.dispatchEvent(new w.Event('change',{bubbles:true}));
+  w.document.querySelector('[data-action="campus"]').click();w.document.querySelector('[data-campus="金明校区"]').click();
+  assert.equal(w.document.querySelector('select[name="import-mode"]').value,'replace','campus rerender must preserve replacement choices');
   shell.window.close();
   dom.window.close();console.log('PASS: timetable import confirmation/cancel, weekly view, safe editing, save failures, resync choices, new table, clear, bridge IDs');
 }
-run().catch(e=>{console.error(e);process.exitCode=1;});
+run().catch(e=>{console.error(e);process.exit(1);});
