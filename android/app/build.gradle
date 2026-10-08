@@ -29,6 +29,7 @@ android {
     testOptions {
         unitTests.includeAndroidResources = true
         unitTests.all {
+            systemProperty 'studyProjectionFixtures', rootProject.file('../test-fixtures/widget-projection.json').absolutePath
             def localSdks = rootProject.file(providers.gradleProperty('studyRobolectricSdks').getOrElse('../../android-tools/robolectric-sdks'))
             if(localSdks.exists()) {
                 systemProperty 'robolectric.offline', 'true'
