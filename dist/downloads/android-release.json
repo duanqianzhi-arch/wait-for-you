@@ -4,8 +4,8 @@
   "applicationId": "cn.henu.study.waitforclass",
   "minAndroid": "8.0",
   "minWebView": 102,
-  "size": 7305512,
-  "sha256": "72a3f41e946005a78e671e301b220feff6bfc94371906cddc3164ad85aa372ae",
+  "size": 7305728,
+  "sha256": "bb964f4bc1e4c836fc205cf6bf0631cbb115e9334412bb8af591a9768344862b",
   "certificateSha256": "b75e65f5f1a72f333b206189c449ac8d2a1a1405235f48babfbe6ff67e45c1c1",
   "signatureVerified": true,
   "permissions": [

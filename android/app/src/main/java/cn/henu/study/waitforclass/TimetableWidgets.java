@@ -51,7 +51,7 @@ final class TimetableWidgets {
         TimetableProjection.Day day=TimetableProjection.forDate(table,date);
         views.setTextViewText(R.id.widget_title,weekly?"第 "+day.week+" 周 · 本周课表":"今日课程 · 第 "+day.week+" 周");
         if(day.week<1||day.week>table.getInt("maxWeek")){views.setTextViewText(R.id.widget_title,weekly?"本周课表":"今日课程");message(views,"今天在已导入的学期外");return views;}
-        height=Math.max(weekly?220:130,Math.min(900,height));width=Math.max(250,Math.min(900,width));
+        height=Math.max(weekly?320:160,Math.min(900,height));width=Math.max(250,Math.min(900,width));
         int hidden=0;
         if(weekly)week(context,views,table,date,day.week,width,height);
         else hidden=today(context,views,day,time,height);
@@ -82,7 +82,7 @@ final class TimetableWidgets {
         if(remaining.isEmpty()){message(views,day.entries.isEmpty()?"今天没有已排课程":"今天的已排课程已结束");return 0;}
         TimetableProjection.Entry next=remaining.get(0);views.setViewVisibility(R.id.widget_message,View.VISIBLE);
         views.setTextViewText(R.id.widget_message,time.isBefore(LocalTime.parse(TimetableProjection.clock(next.startPeriod,false)))?"下一节":"正在上课");
-        int count=Math.min(remaining.size(),Math.max(1,Math.min(6,(height-86)/44)));
+        int count=Math.min(remaining.size(),Math.max(1,Math.min(6,(height-100)/44)));
         for(int i=0;i<count;i++){
             TimetableProjection.Entry e=remaining.get(i);RemoteViews row=new RemoteViews(context.getPackageName(),R.layout.widget_course);
             row.setTextViewText(R.id.widget_course_text,e.name);
@@ -94,7 +94,7 @@ final class TimetableWidgets {
     }
     private static void week(Context context,RemoteViews views,JSONObject table,LocalDate date,int week,int width,int height)throws JSONException {
         List<TimetableProjection.Entry> entries=TimetableProjection.forWeek(table,week);if(entries.isEmpty()){message(views,"本周没有已排课程");return;}
-        int row=Math.max(8,(height-100)/13);LocalDate monday=date.minusDays(date.getDayOfWeek().getValue()-1);
+        int row=Math.max(14,(height-100)/13);LocalDate monday=date.minusDays(date.getDayOfWeek().getValue()-1);
         for(int p=1;p<=13;p++)views.addView(R.id.widget_periods,slot(context,String.valueOf(p),row,9,false,null));
         for(int day=1;day<=7;day++){
             views.setTextViewText(HEADS[day-1],DAYS[day-1]+"\n"+monday.plusDays(day-1).getDayOfMonth());
@@ -117,6 +117,12 @@ final class TimetableWidgets {
     private static RemoteViews slot(Context context,String text,int height,int font,boolean course,String key){
         RemoteViews slot=new RemoteViews(context.getPackageName(),R.layout.widget_slot);slot.setTextViewText(R.id.widget_slot_text,text);
         slot.setInt(R.id.widget_slot_text,"setHeight",Math.round(height*context.getResources().getDisplayMetrics().density));slot.setTextViewTextSize(R.id.widget_slot_text,TypedValue.COMPLEX_UNIT_SP,font);
+        android.util.DisplayMetrics metrics=context.getResources().getDisplayMetrics();
+        android.graphics.Paint paint=new android.graphics.Paint();paint.setTextSize(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP,font,metrics));
+        android.graphics.Paint.FontMetricsInt fm=paint.getFontMetricsInt();
+        // Ellipsize whole lines instead of allowing the last line to be cut by a short period cell.
+        int available=Math.round((height-2)*metrics.density),line=Math.max(1,fm.descent-fm.ascent);
+        slot.setInt(R.id.widget_slot_text,"setMaxLines",Math.max(1,Math.min(6,available/line)));
         if(course){slot.setInt(R.id.widget_slot_text,"setBackgroundResource",R.drawable.widget_course_border);slot.setOnClickPendingIntent(R.id.widget_slot_text,open(context,key));}
         return slot;
     }
