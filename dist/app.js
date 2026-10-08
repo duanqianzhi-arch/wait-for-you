@@ -61,6 +61,7 @@
   let toastTimer, route = '', detailOrigin = 'results', offlineStatus = nativeVersion ? '课表随安装包提供 · 可离线查询' : '联网可查；手机离线功能需 HTTPS', dialogReturnFocus;
   const scrollPositions = new Map(), routeStack = [];
   let currentStudyRoute = 'home';
+  const timetableUI=window.TimetableUI?.createTimetableUI({core,native:window.TimetableUI.createNativeBridge(window),renderHost(){if(routeName()==='timetable')render();},navigate,toast});
   function options(extra={}) {return {...state, favorites:[...favorites], ...extra};}
   function persist() {
     try {localStorage.setItem(storageKey, JSON.stringify({campus:state.campus, mode:state.mode, building:state.building, start:state.start, end:state.end, favorites:[...favorites]}));}
@@ -201,7 +202,7 @@
     const settings=routeName()==='settings'||routeName()==='about'||(routeName()==='room'&&detailOrigin==='settings');
     document.querySelectorAll('[data-nav]').forEach(link=>{
       if(link.dataset.nav==='study')link.href='#'+currentStudyRoute;
-      if(link.dataset.nav===(settings?'settings':'study'))link.setAttribute('aria-current','page');
+      if(link.dataset.nav===(routeName()==='timetable'?'timetable':settings?'settings':'study'))link.setAttribute('aria-current','page');
       else link.removeAttribute('aria-current');
     });
   }
@@ -221,6 +222,7 @@
     else if (name==='results') {content=resultsPage();title='推荐教室';}
     else if (name==='settings') {content=settingsPage();title='设置';}
     else if (name==='about') {content=aboutPage();title='课表说明';}
+    else if (name==='timetable') {content=timetableUI?.render(route)||'<section class="page"><h1 tabindex="-1">我的课表</h1><p>课表页面暂时不可用，请重新打开应用。</p></section>';title='我的课表';}
     else if (name==='room') {
       let id='';try {id=decodeURIComponent(route.slice(5));}catch (_) {}
       content=detailPage(id);title=roomMap.has(id)?roomMap.get(id).name:'教室详情';
@@ -339,6 +341,7 @@
   document.addEventListener('click',event=>{
     const target=event.target.closest('button');
     if(!target) return;
+    if(timetableUI?.handleAction(target))return;
     if(target.dataset.favorite) {
       const id=target.dataset.favorite;if(!roomMap.has(id))return;
       if(favorites.has(id))favorites.delete(id);else favorites.add(id);
@@ -388,6 +391,7 @@
     if(target.matches('[data-field]')) {readField(target);refreshTimeUI();persist();}
   });
   document.addEventListener('submit',event=>{
+    if(timetableUI?.handleSubmit(event.target)){event.preventDefault();return;}
     const id=event.target.id;
     if(!['time-form','preference-form'].includes(id))return;
     event.preventDefault();
@@ -408,6 +412,7 @@
     const r=event.target.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)$('info-dialog').close();
   });
   function refreshToday() {
+    timetableUI?.refreshToday();
     const today=core.chinaToday();
     if(dateAuto&&state.date!==today) {state.date=today;state.scheduleDay='';currentQuery=null;queryError='';render();}
   }
@@ -423,6 +428,7 @@
     handleBack() {
       const dialog=$('info-dialog');
       if(dialog.open){dialog.close();return true;}
+      if(routeName()==='timetable'&&timetableUI?.handleBack())return true;
       if(routeName()==='home')return false;
       if(routeStack.length>1)history.back();
       else navigate(routeName()==='room'?detailOrigin:routeName()==='about'?'settings':routeName()==='results'?'preferences':'home');

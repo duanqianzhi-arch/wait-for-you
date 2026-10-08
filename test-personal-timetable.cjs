@@ -64,4 +64,40 @@ for(const mutate of [
   const t=JSON.parse(JSON.stringify(result.timetable)); mutate(t);
   assert.equal(api.validateTimetable(t).ok,false);
 }
-console.log('PASS: personal timetable counts, precise weeks, periods, missing data and malformed import protection');
+assert.equal(typeof api.applyEdit,'function','editable personal timetable API is missing');
+const original=result.timetable,c=original.courses[0],m=c.meetings[0];
+const changed=api.applyEdit(original,c.key,m.key,{location:'我的教室',note:'带电脑'});
+for(const mutate of [t=>t.overrides[0].baseSnapshot={},t=>t.overrides[0].patch.name='不可用字段',t=>t.courses[0].localOnly='true',t=>t.courses[0].unexpected='not allowed']){
+  const invalid=JSON.parse(JSON.stringify(changed));mutate(invalid);assert.equal(api.validateTimetable(invalid).ok,false,'native-compatible schema must reject malformed edits');
+}
+assert.equal(api.coursesForWeek(changed,5).find(x=>x.course.key===c.key).meeting.location,'我的教室');
+assert.equal(original.overrides.length,0);
+assert.equal(changed.courses[0].meetings[0].location,'示例教学楼101(96)');
+assert.equal(api.validateTimetable(changed).ok,true);
+assert.equal(api.restoreEdit(changed,c.key,m.key).overrides.length,0);
+assert.throws(()=>api.applyEdit(original,c.key,m.key,{startPeriod:6,endPeriod:3}));
+const renamed=api.applyEdit(changed,c.key,null,{name:'我的课程名'});
+assert.equal(api.coursesForWeek(renamed,5).find(x=>x.course.key===c.key).course.name,'我的课程名');
+const identical=api.prepareSync(changed,result.timetable);
+assert.deepEqual(identical.conflicts,[]);
+assert.equal(identical.draft.courses.length,10);
+assert.equal(identical.draft.overrides.length,1);
+const schoolChanged=JSON.parse(JSON.stringify(result.timetable));schoolChanged.courses[0].meetings[0].location='学校更新的教室';
+const conflict=api.prepareSync(changed,schoolChanged);
+assert.equal(conflict.conflicts.length,1);
+assert.throws(()=>api.resolveSync(conflict,{}));
+const kept=api.resolveSync(conflict,{[conflict.conflicts[0].id]:'keep'});
+assert.equal(api.coursesForWeek(kept,5).find(x=>x.course.key===c.key).meeting.location,'我的教室');
+const accepted=api.resolveSync(conflict,{[conflict.conflicts[0].id]:'school'});
+assert.equal(api.coursesForWeek(accepted,5).find(x=>x.course.key===c.key).meeting.location,'学校更新的教室');
+const moved=JSON.parse(JSON.stringify(schoolChanged));moved.courses[0].meetings[0]={...moved.courses[0].meetings[0],key:'new-key',day:6};
+const moveConflict=api.prepareSync(changed,moved);assert.equal(moveConflict.conflicts.length,1);
+assert.equal(api.coursesForWeek(api.resolveSync(moveConflict,{[moveConflict.conflicts[0].id]:'keep'}),5).filter(x=>x.course.key===c.key).length,1);
+const split=JSON.parse(JSON.stringify(moved));split.courses[0].meetings.push({...split.courses[0].meetings[0],key:'split-second',day:7});
+assert.equal(api.prepareSync(changed,split).conflicts[0].kind,'arrangements');
+assert.equal(api.prepareSync(kept,schoolChanged).conflicts.length,0,'accepted keep decision must update sync baseline');
+const removed=JSON.parse(JSON.stringify(result.timetable));removed.courses.splice(0,1);
+const removal=api.prepareSync(changed,removed);assert.equal(removal.conflicts.length,1);
+const retained=api.resolveSync(removal,{[removal.conflicts[0].id]:'keep'});assert.equal(retained.courses.length,10);assert.equal(retained.courses.find(x=>x.key===c.key).localOnly,true);
+assert.equal(api.replaceWithNewTable(schoolChanged).overrides.length,0);
+console.log('PASS: personal timetable parsing, edits, restore, safe resync, changed/moved/deleted conflicts');

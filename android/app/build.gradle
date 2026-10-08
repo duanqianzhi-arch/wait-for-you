@@ -51,6 +51,7 @@ tasks.register('syncWebAssets', Sync) {
     from(rootProject.file('../dist'))
     into(layout.buildDirectory.dir('generated/web-assets/www'))
     include 'index.html', 'styles.css', 'data.js', 'core.js', 'flow.js', 'app.js', 'henu-schedule-adapter.js',
+            'personal-timetable.js', 'timetable-ui.js',
             'assets/rough.js', 'assets/study-note-hand.woff2',
             'assets/OFL-Xiaolai.txt', 'assets/OFL-RoughJS-MIT.txt',
             'assets/LICENSE-AndroidX-Apache-2.0.txt',

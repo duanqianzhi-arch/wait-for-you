@@ -12,12 +12,14 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='24' fill='%23171717'/%3E%3Cpath d='M28 78V23h44v55M48 25v50' stroke='white' stroke-width='5' fill='none'/%3E%3Ccircle cx='62' cy='52' r='3' fill='white'/%3E%3C/svg%3E">
   <link rel="apple-touch-icon" href="assets/ink-dog-app-icon.png">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="styles.css?v=15">
+  <link rel="stylesheet" href="styles.css?v=16">
   <script src="data.js" defer></script>
   <script src="core.js?v=11" defer></script>
   <script src="flow.js" defer></script>
   <script src="assets/rough.js" defer></script>
-  <script src="app.js?v=15" defer></script>
+  <script src="personal-timetable.js" defer></script>
+  <script src="timetable-ui.js" defer></script>
+  <script src="app.js?v=16" defer></script>
 </head>
 <body>
   <div class="app-shell">
@@ -25,6 +27,7 @@
       <a href="#home" class="brand" aria-label="等你下课首页"><span class="brand-mark" data-icon="door"></span><span><strong>等你下课</strong><small>去自习，好吗？</small></span></a>
       <nav class="main-nav" aria-label="主页面">
         <a href="#home" data-nav="study"><span data-icon="book"></span><span>自习</span></a>
+        <a href="#timetable" data-nav="timetable"><span data-icon="calendar"></span><span>我的课表</span></a>
         <a href="#settings" data-nav="settings"><span data-icon="settings"></span><span>设置</span></a>
       </nav>
       <div class="sidebar-note"><span data-icon="book"></span><p>一个适合自习的地方，<br>一段属于你的时间。</p><small>2026—2027 · 第一学期</small></div>

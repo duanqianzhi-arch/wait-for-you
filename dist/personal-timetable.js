@@ -11,6 +11,8 @@
   const integer=(v,min,max)=>Number.isInteger(v)&&v>=min&&v<=max;
   const text=(v,max,empty=true)=>typeof v==='string'&&v.length<=max&&(empty||v.trim().length>0);
   const clone=v=>JSON.parse(JSON.stringify(v));
+  const onlyKeys=(v,allowed)=>Object.keys(v).every(k=>allowed.includes(k));
+  function validField(k,v){return fields.has(k)&&({name:()=>text(v,120,false),location:()=>text(v,240),note:()=>text(v,1000),day:()=>integer(v,1,7),weeks:()=>validWeeks(v),startPeriod:()=>integer(v,1,13),endPeriod:()=>integer(v,1,13)})[k]();}
   function byteSize(value){
     const s=JSON.stringify(value);let size=0;
     for(const ch of s) {const cp=ch.codePointAt(0);size+=cp<128?1:cp<2048?2:cp<65536?3:4;}
@@ -71,17 +73,19 @@
   function validateTimetable(value){
     const errors=[];
     if(!isObject(value)||!withinSize(value))return {ok:false,errors:['invalid_size_or_shape']};
+    if(!onlyKeys(value,['schemaVersion','school','semester','firstMonday','maxWeek','timezone','importedAt','adapterVersion','revision','courses','overrides']))errors.push('unknown_metadata');
     if(value.schemaVersion!==1||value.school!=='henu'||value.semester!==SEMESTER||value.firstMonday!==FIRST_MONDAY||value.maxWeek!==MAX_WEEK||value.timezone!=='Asia/Shanghai'||!text(value.adapterVersion,64,false)||!text(value.importedAt,64,false)||!Number.isFinite(Date.parse(value.importedAt))||!integer(value.revision,1,2147483647))errors.push('invalid_metadata');
     if(!Array.isArray(value.courses)||value.courses.length>500||!Array.isArray(value.overrides)||value.overrides.length>2500)return {ok:false,errors:[...errors,'invalid_collections']};
     const keys=new Set(),byKey=new Map();let meetingCount=0;
     for(const c of value.courses){
       if(!isObject(c)||!text(c.key,400,false)||!text(c.code,64,false)||!text(c.teachingGroupCode,128,false)||!text(c.name,120,false)||keys.has(c.key)||!Array.isArray(c.meetings)||typeof c.unscheduled!=='boolean'||c.unscheduled!==(c.meetings.length===0)){errors.push('invalid_course');continue;}
       keys.add(c.key);byKey.set(c.key,c);
+      if(!onlyKeys(c,['key','code','teachingGroupCode','name','meetings','pendingSchedules','unscheduled','localOnly'])||(c.localOnly!==undefined&&typeof c.localOnly!=='boolean'))errors.push('invalid_course_fields');
       if(!Array.isArray(c.pendingSchedules)||c.pendingSchedules.some(s=>!text(s,10000,false)))errors.push('invalid_pending_schedule');
       const mKeys=new Set();
       for(const m of c.meetings){
         meetingCount++;
-        if(!isObject(m)||!text(m.key,400,false)||mKeys.has(m.key)||!integer(m.day,1,7)||!validWeeks(m.weeks)||!integer(m.startPeriod,1,13)||!integer(m.endPeriod,m.startPeriod,13)||!text(m.location,240))errors.push('invalid_meeting');
+        if(!isObject(m)||!onlyKeys(m,['key','day','weeks','startPeriod','endPeriod','location'])||!text(m.key,400,false)||mKeys.has(m.key)||!integer(m.day,1,7)||!validWeeks(m.weeks)||!integer(m.startPeriod,1,13)||!integer(m.endPeriod,m.startPeriod,13)||!text(m.location,240))errors.push('invalid_meeting');
         if(m)mKeys.add(m.key);
       }
     }
@@ -91,6 +95,8 @@
       if(!isObject(o)||!byKey.has(o.courseKey)||!(o.meetingKey===null||byKey.get(o.courseKey).meetings.some(m=>m.key===o.meetingKey))||!isObject(o.patch)||!isObject(o.baseSnapshot)){errors.push('invalid_override');continue;}
       const key=JSON.stringify([o.courseKey,o.meetingKey]);
       if(overrideKeys.has(key))errors.push('duplicate_override');overrideKeys.add(key);
+      const allowed=o.meetingKey===null?['name','note']:['location','note','day','weeks','startPeriod','endPeriod'];
+      if(!onlyKeys(o,['courseKey','meetingKey','baseSnapshot','patch'])||!Object.keys(o.patch).length||!onlyKeys(o.baseSnapshot,allowed)||!onlyKeys(o.patch,allowed)||Object.entries(o.baseSnapshot).some(([k,v])=>!validField(k,v))||Object.keys(o.patch).some(k=>!Object.prototype.hasOwnProperty.call(o.baseSnapshot,k)))errors.push('invalid_override_fields');
       for(const k of Object.getOwnPropertyNames(o.patch)){
         const v=o.patch[k];
         if(!fields.has(k)||(k==='name'&&!text(v,120,false))||(k==='location'&&!text(v,240))||(k==='note'&&!text(v,1000))||(k==='day'&&!integer(v,1,7))||(k==='weeks'&&!validWeeks(v))||(['startPeriod','endPeriod'].includes(k)&&!integer(v,1,13)))errors.push('invalid_patch');
@@ -120,5 +126,69 @@
     for(const original of timetable.courses){const course=effectiveCourse(timetable,original);for(const meeting of course.meetings)if(meeting.weeks.includes(week))out.push({course,meeting});}
     return out.sort((a,b)=>a.meeting.day-b.meeting.day||a.meeting.startPeriod-b.meeting.startPeriod||a.course.name.localeCompare(b.course.name));
   }
-  return {normalizeImport,validateTimetable,coursesForWeek,weekForDate,effectiveCourse};
+  function checked(value){if(!validateTimetable(value).ok)throw Error('invalid_timetable');return value;}
+  function baseFor(timetable,courseKey,meetingKey){
+    const course=timetable.courses.find(c=>c.key===courseKey);
+    const base=meetingKey===null?course:course&&course.meetings.find(m=>m.key===meetingKey);
+    if(!base)throw Error('missing_record');return base;
+  }
+  function snapshot(base,patch){return Object.fromEntries(Object.keys(patch).map(k=>[k,clone(base[k]===undefined?'':base[k])]));}
+  function applyEdit(timetable,courseKey,meetingKey,patch){
+    checked(timetable);
+    if(!isObject(patch)||!Object.keys(patch).length)throw Error('invalid_patch');
+    const allowed=meetingKey===null?['name','note']:['location','note','day','weeks','startPeriod','endPeriod'];
+    if(Object.keys(patch).some(k=>!allowed.includes(k)))throw Error('invalid_patch');
+    const base=baseFor(timetable,courseKey,meetingKey),out=clone(timetable);
+    const old=out.overrides.find(o=>o.courseKey===courseKey&&o.meetingKey===meetingKey);
+    const merged={...(old?old.patch:{}),...clone(patch)};
+    const override={courseKey,meetingKey,baseSnapshot:snapshot(base,merged),patch:merged};
+    out.overrides=out.overrides.filter(o=>!(o.courseKey===courseKey&&o.meetingKey===meetingKey));
+    out.overrides.push(override);out.revision++;return checked(out);
+  }
+  function restoreEdit(timetable,courseKey,meetingKey){
+    checked(timetable);baseFor(timetable,courseKey,meetingKey);
+    const out=clone(timetable);out.overrides=out.overrides.filter(o=>!(o.courseKey===courseKey&&o.meetingKey===meetingKey));
+    out.revision++;return checked(out);
+  }
+  function replaceWithNewTable(next){const out=clone(checked(next));out.overrides=[];return out;}
+  const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+  function carryOverride(draft,override){
+    const base=baseFor(draft,override.courseKey,override.meetingKey);
+    draft.overrides.push({...clone(override),baseSnapshot:snapshot(base,override.patch)});
+  }
+  function prepareSync(previous,next){
+    checked(previous);const draft=replaceWithNewTable(next),conflicts=[];
+    draft.revision=Math.max(previous.revision,next.revision)+1;
+    const conflict=(kind,course,overrides)=>conflicts.push({id:'conflict-'+conflicts.length,kind,courseName:course.name,course:clone(course),newCourse:clone(draft.courses.find(c=>c.key===course.key)||null),overrides:clone(overrides)});
+    for(const course of previous.courses){
+      const overrides=previous.overrides.filter(o=>o.courseKey===course.key);
+      if(!overrides.length)continue;
+      const fresh=draft.courses.find(c=>c.key===course.key);
+      if(!fresh){conflict('removed',course,overrides);continue;}
+      const missing=overrides.some(o=>o.meetingKey!==null&&!fresh.meetings.some(m=>m.key===o.meetingKey));
+      // Changed/split arrangements have no reliable one-to-one identity. Ask once for the whole course.
+      if(missing){conflict('arrangements',course,overrides);continue;}
+      for(const override of overrides){
+        const base=baseFor(draft,override.courseKey,override.meetingKey);
+        const changed=Object.keys(override.patch).some(k=>!same(base[k]===undefined?'':base[k],override.baseSnapshot[k])&&!same(base[k]===undefined?'':base[k],override.patch[k]));
+        if(changed)conflict('fields',course,[override]);else carryOverride(draft,override);
+      }
+    }
+    return {draft:checked(draft),conflicts};
+  }
+  function resolveSync(prepared,choices){
+    const draft=clone(checked(prepared.draft));
+    for(const conflict of prepared.conflicts){
+      const choice=choices[conflict.id];if(!['keep','school'].includes(choice))throw Error('unresolved_conflict');
+      if(choice==='school')continue;
+      if(conflict.kind==='removed'||conflict.kind==='arrangements'){
+        draft.courses=draft.courses.filter(c=>c.key!==conflict.course.key);
+        draft.courses.push({...clone(conflict.course),localOnly:true});
+        draft.overrides=draft.overrides.filter(o=>o.courseKey!==conflict.course.key);
+      }
+      for(const override of conflict.overrides)carryOverride(draft,override);
+    }
+    return checked(draft);
+  }
+  return {normalizeImport,validateTimetable,coursesForWeek,weekForDate,effectiveCourse,applyEdit,restoreEdit,prepareSync,resolveSync,replaceWithNewTable};
 });
