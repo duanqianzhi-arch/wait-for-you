@@ -9,11 +9,29 @@ import org.robolectric.shadows.ShadowLooper;
 import android.webkit.WebView;
 import android.webkit.WebSettings;
 import android.webkit.ValueCallback;
+import java.util.concurrent.TimeUnit;
+import org.json.JSONObject;
 @RunWith(RobolectricTestRunner.class) @Config(sdk=28)
 public class TimetableImportActivityTest {
     public static class ControlledCleanupActivity extends TimetableImportActivity {
         ValueCallback<String> cleanupCallback;
         @Override protected void evaluateSchoolCleanup(ValueCallback<String> callback){cleanupCallback=callback;}
+    }
+    public static class ControlledReadActivity extends ControlledCleanupActivity {
+        ValueCallback<String> pageCallback;
+        JSONObject imported;
+        @Override protected void evaluateTimetablePage(ValueCallback<String> callback){pageCallback=callback;}
+        @Override protected void onParsed(JSONObject raw){imported=raw;}
+    }
+    private WebView loggedInHome(ControlledReadActivity activity){
+        WebView web=activity.findViewById(R.id.timetable_import_webview);
+        cleanupDocumentLoaded(web);activity.cleanupCallback.onReceiveValue("true");ShadowLooper.runUiThreadTasks();
+        web.loadUrl("https://xk.henu.edu.cn/frame/homes.action");web.getWebViewClient().onPageStarted(web,web.getUrl(),null);
+        web.getWebViewClient().onPageCommitVisible(web,web.getUrl());
+        ShadowLooper.idleMainLooper(1,TimeUnit.SECONDS);return web;
+    }
+    private String emptyCompleteImport()throws Exception{
+        return JSONObject.quote("{\"adapterVersion\":\"henu-list-1\",\"semester\":\"2026-2027-1\",\"declaredCourseCount\":0,\"complete\":true,\"rows\":[]}");
     }
     private void cleanupDocumentLoaded(WebView web){
         assertEquals("https://xk.henu.edu.cn/__waitforclass_cleanup__",web.getUrl());
@@ -45,6 +63,38 @@ public class TimetableImportActivityTest {
         assertFalse(web.getWebViewClient().shouldOverrideUrlLoading(web,"https://xk.henu.edu.cn/student/xkjg.wdkb.jsp"));
         assertEquals(403,web.getWebViewClient().shouldInterceptRequest(web,"http://xk.henu.edu.cn/script.js").getStatusCode());
         activity.finish();
+    }
+    @Test public void loggedInHomeUsesSchoolMenuInsteadOfLoadingRestrictedPersonalUrl(){
+        ControlledCleanupActivity activity=Robolectric.buildActivity(ControlledCleanupActivity.class).setup().get();
+        WebView web=activity.findViewById(R.id.timetable_import_webview);
+        cleanupDocumentLoaded(web);activity.cleanupCallback.onReceiveValue("true");ShadowLooper.runUiThreadTasks();
+        web.loadUrl("https://xk.henu.edu.cn/frame/homes.action");
+        web.getWebViewClient().onPageStarted(web,web.getUrl(),null);
+        web.getWebViewClient().onPageFinished(web,web.getUrl());
+        assertEquals("School route must remain on the home page with its authenticated frames", "https://xk.henu.edu.cn/frame/homes.action",web.getUrl());
+    }
+    @Test public void nestedFrameReadRetriesAndReturnsImportWithoutMainPageFinished()throws Exception{
+        ControlledReadActivity activity=Robolectric.buildActivity(ControlledReadActivity.class).setup().get();
+        WebView web=loggedInHome(activity);
+        assertNotNull(activity.pageCallback);
+        activity.pageCallback.onReceiveValue(JSONObject.quote("{\"errorCode\":\"not_ready\",\"stage\":\"opening-menu\"}"));
+        ShadowLooper.idleMainLooper(1,TimeUnit.SECONDS);
+        activity.pageCallback.onReceiveValue(emptyCompleteImport());
+        assertNotNull("Loaded nested frames must become an import even without a new top-level finished event",activity.imported);
+        assertTrue(activity.imported.getBoolean("complete"));assertEquals(0,activity.imported.getJSONArray("rows").length());
+        assertEquals("https://xk.henu.edu.cn/frame/homes.action",web.getUrl());
+    }
+    @Test public void navigationAwayDiscardsPendingHomeImport()throws Exception{
+        ControlledReadActivity activity=Robolectric.buildActivity(ControlledReadActivity.class).setup().get();
+        WebView web=loggedInHome(activity);ValueCallback<String> previous=activity.pageCallback;
+        web.loadUrl(TimetableImportPolicy.LOGIN);web.getWebViewClient().onPageStarted(web,web.getUrl(),null);
+        previous.onReceiveValue(emptyCompleteImport());assertNull(activity.imported);
+    }
+    @Test public void lateScriptAfterTimeoutCannotSaveTimetable()throws Exception{
+        ControlledReadActivity activity=Robolectric.buildActivity(ControlledReadActivity.class).setup().get();
+        loggedInHome(activity);ValueCallback<String> late=activity.pageCallback;
+        ShadowLooper.idleMainLooper(11,TimeUnit.SECONDS);
+        late.onReceiveValue(emptyCompleteImport());assertNull(activity.imported);
     }
     @Test public void failedCleanupIsRetriedBeforeSchoolLoginOnNextImport(){
         ControlledCleanupActivity activity=Robolectric.buildActivity(ControlledCleanupActivity.class).setup().get();

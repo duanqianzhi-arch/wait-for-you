@@ -85,7 +85,7 @@ public class MainActivity extends Activity {
         if(state==null || webView.restoreState(state)==null)webView.loadUrl(START_URL);
     }
     private boolean openUpdatePage(String url){
-        if(!"https://henu-study.pages.dev/android-update.html?versionCode=4".equals(url))return false;
+        if(!"https://henu-study.pages.dev/android-update.html?versionCode=5".equals(url))return false;
         try { startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(url))); }
         catch(ActivityNotFoundException unavailable){Toast.makeText(this,"请用浏览器打开 henu-study.pages.dev 查看新版本。",Toast.LENGTH_LONG).show();}
         return true;

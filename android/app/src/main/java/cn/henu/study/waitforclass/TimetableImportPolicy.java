@@ -22,7 +22,8 @@ final class TimetableImportPolicy {
         if(!acceptsNavigation(value))return false;
         try{return "/frame/homes.action".equals(new URI(value).getPath());}catch(Exception invalid){return false;}
     }
+    static boolean acceptsImportContainer(String value){return isHome(value)||acceptsTimetableDocument(value);}
     static boolean acceptsResult(int started,int current,String url,int sizeBytes){
-        return started==current&&sizeBytes>0&&sizeBytes<=MAX_BYTES&&acceptsTimetableDocument(url);
+        return started==current&&sizeBytes>0&&sizeBytes<=MAX_BYTES&&acceptsImportContainer(url);
     }
 }

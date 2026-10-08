@@ -5,3 +5,8 @@
   Cache-Control: public, max-age=3600
 /android-update*
   Cache-Control: no-store
+/downloads/dengni-xiake-v1.1.2.apk
+  Content-Type: application/vnd.android.package-archive
+  Content-Disposition: attachment; filename="dengni-xiake-v1.1.2.apk"
+  X-Content-Type-Options: nosniff
+  Cache-Control: public, max-age=3600

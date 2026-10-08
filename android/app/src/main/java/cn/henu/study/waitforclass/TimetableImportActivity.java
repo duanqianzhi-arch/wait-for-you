@@ -23,6 +23,8 @@ public class TimetableImportActivity extends Activity {
     private int generation,attempts;
     private boolean delivered,destroyed;
     private boolean closing,cookieClearing,startupCleanup,loginReady;
+    private boolean probeInFlight,probeScheduled;
+    private long readDeadline;
     private String extractor;
 
     @Override public void onCreate(Bundle state){
@@ -33,7 +35,7 @@ public class TimetableImportActivity extends Activity {
         Button close=new Button(this);close.setText("关闭");close.setOnClickListener(v->finish());toolbar.addView(close);
         TextView domain=new TextView(this);domain.setText("河南大学教务\nxk.henu.edu.cn");domain.setTextSize(16);domain.setTextColor(Color.BLACK);
         toolbar.addView(domain,new LinearLayout.LayoutParams(0,-2,1));
-        Button retry=new Button(this);retry.setText("重试");retry.setOnClickListener(v->{if(closing)return;attempts=0;delivered=false;if(!loginReady)beginSchoolLogin();else if(TimetableImportPolicy.acceptsTimetableDocument(browser.getUrl()))readPage(generation);else browser.loadUrl(TimetableImportPolicy.LOGIN);});toolbar.addView(retry);root.addView(toolbar);
+        Button retry=new Button(this);retry.setText("重试");retry.setOnClickListener(v->{if(closing)return;generation++;handler.removeCallbacksAndMessages(null);attempts=0;readDeadline=0;probeInFlight=false;probeScheduled=false;delivered=false;if(!loginReady)beginSchoolLogin();else if(TimetableImportPolicy.acceptsImportContainer(browser.getUrl()))requestRead(generation);else browser.loadUrl(TimetableImportPolicy.LOGIN);});toolbar.addView(retry);root.addView(toolbar);
         status=new TextView(this);status.setText("请在学校原网页自行登录，程序随后自动读取课表。");status.setTextColor(Color.DKGRAY);status.setPadding(16,10,16,10);root.addView(status);
         browser=new WebView(this);browser.setId(R.id.timetable_import_webview);root.addView(browser,new LinearLayout.LayoutParams(-1,0,1));
         WebSettings settings=browser.getSettings();settings.setJavaScriptEnabled(true);settings.setDomStorageEnabled(true);
@@ -50,17 +52,13 @@ public class TimetableImportActivity extends Activity {
                 if(CLEANUP_URL.equals(url))return new WebResourceResponse("text/html","UTF-8",200,"OK",Collections.singletonMap("Cache-Control","no-store"),new ByteArrayInputStream(CLEANUP_HTML.getBytes(StandardCharsets.UTF_8)));
                 return TimetableImportPolicy.acceptsNavigation(url)?null:rejected();
             }
-            @Override public void onPageStarted(WebView view,String url,android.graphics.Bitmap icon){generation++;attempts=0;if(!closing)handler.removeCallbacksAndMessages(null);}
+            @Override public void onPageStarted(WebView view,String url,android.graphics.Bitmap icon){generation++;attempts=0;readDeadline=0;probeInFlight=false;probeScheduled=false;if(!closing)handler.removeCallbacksAndMessages(null);}
+            @Override public void onPageCommitVisible(WebView view,String url){requestRead(generation);}
             @Override public void onPageFinished(WebView view,String url){
-                if(destroyed||closing||url==null||!url.equals(view.getUrl()))return;
-                if(startupCleanup&&CLEANUP_URL.equals(url)){clearBeforeLogin(generation);return;}
+                if(destroyed||closing||url==null)return;
+                if(startupCleanup&&CLEANUP_URL.equals(url)&&url.equals(view.getUrl())){clearBeforeLogin(generation);return;}
                 if(delivered||!loginReady)return;
-                if(TimetableImportPolicy.isHome(url)){view.loadUrl(TimetableImportPolicy.PERSONAL);return;}
-                if(TimetableImportPolicy.acceptsTimetableDocument(url)){
-                    // Select the already-observed list view; this changes presentation only.
-                    view.evaluateJavascript("(function(){var e=document.getElementById('cxfs_lb');if(e&&!e.checked)e.click();})()",null);
-                    readPage(generation);
-                }
+                requestRead(generation);
             }
             @Override public void onReceivedSslError(WebView view,SslErrorHandler handler,android.net.http.SslError error){handler.cancel();status.setText("学校连接证书验证失败，未读取课表。");}
             @Override public void onReceivedError(WebView view,WebResourceRequest request,WebResourceError error){if(request.isForMainFrame())status.setText("暂时无法连接教务系统。原有课表仍然保留。");}
@@ -99,21 +97,35 @@ public class TimetableImportActivity extends Activity {
             });
         });
     }
+    private void requestRead(int started){
+        if(destroyed||closing||delivered||!loginReady||started!=generation||probeInFlight||probeScheduled||!TimetableImportPolicy.acceptsImportContainer(browser.getUrl()))return;
+        probeScheduled=true;
+        handler.postDelayed(()->{if(started!=generation)return;probeScheduled=false;readPage(started);},1000);
+    }
+    protected void evaluateTimetablePage(ValueCallback<String> callback){
+        String script="(function(){var module;"+extractor+";var p=HenuScheduleAdapter.prepare(document);return JSON.stringify(p.stage==='reading'?HenuScheduleAdapter.extract(document):{errorCode:'not_ready',stage:p.stage});})()";
+        browser.evaluateJavascript(script,callback);
+    }
     private void readPage(int started){
-        if(destroyed||closing||delivered||started!=generation||!TimetableImportPolicy.acceptsTimetableDocument(browser.getUrl()))return;
-        if(attempts++>=5){status.setText("课表尚未读取完成，可点重试；原有课表未改变。");return;}
-        status.setText("正在识别本人课表…");
-        String script="(function(){var module;"+extractor+";return JSON.stringify(HenuScheduleAdapter.extract(document));})()";
-        browser.evaluateJavascript(script,value->{
-            if(destroyed||delivered||!TimetableImportPolicy.acceptsResult(started,generation,browser.getUrl(),value==null?0:value.getBytes(StandardCharsets.UTF_8).length))return;
+        if(destroyed||closing||delivered||!loginReady||probeInFlight||started!=generation||!TimetableImportPolicy.acceptsImportContainer(browser.getUrl()))return;
+        long now=android.os.SystemClock.uptimeMillis();if(readDeadline==0)readDeadline=now+40000;
+        if(attempts++>=40||now>=readDeadline){status.setText("未能读取完整个人课表，请点重试；原有课表未改变。");return;}
+        probeInFlight=true;status.setText("已登录，正在打开并识别本人课表…");
+        Runnable timedOut=()->{if(started==generation&&probeInFlight&&!destroyed&&!closing){probeInFlight=false;attempts=40;status.setText("读取课表超时，请点重试；原有课表未改变。");}};
+        handler.postDelayed(timedOut,Math.min(10000,readDeadline-now));
+        evaluateTimetablePage(value->{
+            if(destroyed||closing||delivered||!probeInFlight||!TimetableImportPolicy.acceptsResult(started,generation,browser.getUrl(),value==null?0:value.getBytes(StandardCharsets.UTF_8).length))return;
+            handler.removeCallbacks(timedOut);probeInFlight=false;
             try{
                 Object decoded=new JSONTokener(value).nextValue();
                 if(!(decoded instanceof String))throw new JSONException("invalid_result");
                 JSONObject result=new JSONObject((String)decoded);
                 if(result.has("errorCode")){
                     String error=result.optString("errorCode");
-                    if("unsupported_semester".equals(error)){status.setText("当前先支持2026—2027第一学期，请选择这个学期。");return;}
-                    handler.postDelayed(()->readPage(started),4000);return;
+                    if("unsupported_semester".equals(error)){status.setText("当前先支持2026—2027第一学期，请选择这个学期后点重试。");return;}
+                    String phase=result.optString("stage");
+                    status.setText("opening-menu".equals(phase)?"已登录，正在打开教学安排…":"selecting-list".equals(phase)?"正在切换课表列表…":"课表框架还在加载，正在等待完整课表…");
+                    requestRead(started);return;
                 }
                 if(!result.optBoolean("complete")||!result.has("rows"))throw new JSONException("incomplete_result");
                 delivered=true;onParsed(result);

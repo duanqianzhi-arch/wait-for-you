@@ -16,4 +16,10 @@ public class TimetableImportPolicyTest {
         assertFalse(TimetableImportPolicy.acceptsResult(1,1,url,512*1024+1));
         assertFalse(TimetableImportPolicy.acceptsResult(1,1,"https://xk.henu.edu.cn/cas/login.action",512));
     }
+    @Test public void nestedTimetableCanReturnWhileTopPageStaysOnSchoolHome(){
+        assertTrue(TimetableImportPolicy.acceptsResult(8,8,"https://xk.henu.edu.cn/frame/homes.action",512));
+        assertFalse(TimetableImportPolicy.acceptsResult(8,9,"https://xk.henu.edu.cn/frame/homes.action",512));
+        assertFalse(TimetableImportPolicy.acceptsResult(8,8,"https://xk.henu.edu.cn/frame/errors/405.jsp",512));
+        assertFalse(TimetableImportPolicy.acceptsResult(8,8,"https://xk.henu.edu.cn.evil.example/frame/homes.action",512));
+    }
 }
