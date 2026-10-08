@@ -1,11 +1,11 @@
 {
-  "version": "1.1.0",
-  "versionCode": 3,
+  "version": "1.1.1",
+  "versionCode": 4,
   "applicationId": "cn.henu.study.waitforclass",
   "minAndroid": "8.0",
   "minWebView": 102,
-  "size": 7283160,
-  "sha256": "c5f2e3b0eb7064338648db92f36b08da9ef327727f83e45370003c0b8e7261b8",
+  "size": 7283132,
+  "sha256": "350649dd0f849478b846e5eead038b1929f9d7b06ed105fda25b4db112ece26b",
   "certificateSha256": "b75e65f5f1a72f333b206189c449ac8d2a1a1405235f48babfbe6ff67e45c1c1",
   "signatureVerified": true,
   "permissions": [
@@ -13,7 +13,7 @@
   ],
   "bundledFiles": 22,
   "runtimeStatus": "phone-testing-pending",
-  "file": "dengni-xiake-v1.1.0.apk",
+  "file": "dengni-xiake-v1.1.1.apk",
   "releaseDate": "2026-10-08",
-  "label": "Android 1.1.0 development test build; school login and device acceptance pending"
+  "label": "Android 1.1.1 cleanup-page fix test build; school login and device acceptance pending"
 }

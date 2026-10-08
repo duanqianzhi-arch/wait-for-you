@@ -6,8 +6,8 @@ android {
         applicationId 'cn.henu.study.waitforclass'
         minSdk 26
         targetSdk 35
-        versionCode 3
-        versionName '1.1.0'
+        versionCode 4
+        versionName '1.1.1'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
     sourceSets { main { assets.srcDirs = ['build/generated/web-assets'] } }
@@ -60,7 +60,7 @@ tasks.register('syncWebAssets', Sync) {
             'assets/ink-dog-quiet.png', 'assets/ink-dog-results.png',
             'assets/ink-dog-empty.png', 'assets/ink-dog-favorites.png'
     filesMatching('index.html') {
-        filter { line -> line.replace('<html lang="zh-CN" data-classroom-app>', '<html lang="zh-CN" data-classroom-app data-native-app="1.1.0">')
+        filter { line -> line.replace('<html lang="zh-CN" data-classroom-app>', '<html lang="zh-CN" data-classroom-app data-native-app="1.1.1">')
                             .replace('<link rel="manifest" href="manifest.webmanifest">', '') }
     }
 }

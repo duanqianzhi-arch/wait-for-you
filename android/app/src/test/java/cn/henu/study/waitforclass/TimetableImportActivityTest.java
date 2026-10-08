@@ -16,10 +16,19 @@ public class TimetableImportActivityTest {
         @Override protected void evaluateSchoolCleanup(ValueCallback<String> callback){cleanupCallback=callback;}
     }
     private void cleanupDocumentLoaded(WebView web){
-        org.robolectric.shadows.ShadowWebView.LoadDataWithBaseURL data=org.robolectric.Shadows.shadowOf(web).getLastLoadDataWithBaseURL();
-        assertEquals(TimetableImportActivity.CLEANUP_URL,data.baseUrl);assertEquals(data.baseUrl,data.historyUrl);
-        // ShadowWebView records loadData but does not render it or advance getUrl; simulate that framework event.
-        web.loadUrl(data.historyUrl);web.getWebViewClient().onPageFinished(web,data.historyUrl);
+        assertEquals("https://xk.henu.edu.cn/__waitforclass_cleanup__",web.getUrl());
+        // Robolectric doesn't render WebView: notify the real client after the recorded load.
+        web.getWebViewClient().onPageFinished(web,web.getUrl());
+    }
+    @Test public void cleanupDocumentIsServedLocallyAtSchoolOrigin(){
+        ControlledCleanupActivity activity=Robolectric.buildActivity(ControlledCleanupActivity.class).setup().get();
+        WebView web=activity.findViewById(R.id.timetable_import_webview);
+        android.webkit.WebResourceResponse response=web.getWebViewClient().shouldInterceptRequest(web,"https://xk.henu.edu.cn/__waitforclass_cleanup__");
+        assertNotNull("The cleanup document must not be fetched from the school or rejected as an internal data URL",response);
+        assertEquals(200,response.getStatusCode());assertEquals("text/html",response.getMimeType());
+        assertEquals("https://xk.henu.edu.cn/__waitforclass_cleanup__",web.getUrl());
+        assertNull(web.getWebViewClient().shouldInterceptRequest(web,"https://xk.henu.edu.cn/cas/login.action"));
+        assertEquals(403,web.getWebViewClient().shouldInterceptRequest(web,"data:text/html;charset=utf-8;base64,").getStatusCode());
     }
     @Test public void schoolBrowserKeepsNetworkSeparateFromPackagedApp(){
         ControlledCleanupActivity activity=Robolectric.buildActivity(ControlledCleanupActivity.class).setup().get();

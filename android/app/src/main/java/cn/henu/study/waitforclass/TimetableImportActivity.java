@@ -16,6 +16,7 @@ import org.json.*;
 /** School content has no native bridge. Only a native-initiated read produces a draft. */
 public class TimetableImportActivity extends Activity {
     static final String CLEANUP_URL="https://xk.henu.edu.cn/__waitforclass_cleanup__";
+    private static final String CLEANUP_HTML="<!doctype html><meta charset='utf-8'><p>正在准备学校登录…</p>";
     private WebView browser;
     private TextView status;
     private final Handler handler=new Handler(Looper.getMainLooper());
@@ -45,7 +46,10 @@ public class TimetableImportActivity extends Activity {
             @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){return !TimetableImportPolicy.acceptsNavigation(request.getUrl().toString());}
             @Override public boolean shouldOverrideUrlLoading(WebView view,String url){return !TimetableImportPolicy.acceptsNavigation(url);}
             @Override public WebResourceResponse shouldInterceptRequest(WebView view,WebResourceRequest request){return shouldInterceptRequest(view,request.getUrl().toString());}
-            @Override public WebResourceResponse shouldInterceptRequest(WebView view,String url){return TimetableImportPolicy.acceptsNavigation(url)?null:rejected();}
+            @Override public WebResourceResponse shouldInterceptRequest(WebView view,String url){
+                if(CLEANUP_URL.equals(url))return new WebResourceResponse("text/html","UTF-8",200,"OK",Collections.singletonMap("Cache-Control","no-store"),new ByteArrayInputStream(CLEANUP_HTML.getBytes(StandardCharsets.UTF_8)));
+                return TimetableImportPolicy.acceptsNavigation(url)?null:rejected();
+            }
             @Override public void onPageStarted(WebView view,String url,android.graphics.Bitmap icon){generation++;attempts=0;if(!closing)handler.removeCallbacksAndMessages(null);}
             @Override public void onPageFinished(WebView view,String url){
                 if(destroyed||closing||url==null||!url.equals(view.getUrl()))return;
@@ -73,8 +77,9 @@ public class TimetableImportActivity extends Activity {
     private void beginSchoolLogin(){
         if(destroyed||closing)return;loginReady=false;startupCleanup=true;generation++;handler.removeCallbacksAndMessages(null);markCleanupPending();
         status.setText("正在清理上次学校会话…");
-        // A bundled, network-free document uses only the verified school origin to clear its storage.
-        browser.loadDataWithBaseURL(CLEANUP_URL,"<!doctype html><meta charset='utf-8'><p>正在准备学校登录…</p>","text/html","UTF-8",CLEANUP_URL);
+        // Serve this exact HTTPS URL locally. loadDataWithBaseURL can emit an internal data:
+        // request, which the school's strict resource policy correctly rejects.
+        browser.loadUrl(CLEANUP_URL);
     }
     protected void evaluateSchoolCleanup(ValueCallback<String> callback){
         browser.evaluateJavascript("(function(){try{if(location.origin!=='https://xk.henu.edu.cn')return false;localStorage.clear();sessionStorage.clear();return localStorage.length===0&&sessionStorage.length===0;}catch(e){return false;}})()",callback);
