@@ -60,6 +60,13 @@ final class TimetableWidgets {
     }
     private static RemoteViews base(Context context,LocalDate date,LocalTime time,boolean weekly){
         RemoteViews v=new RemoteViews(context.getPackageName(),weekly?R.layout.widget_week:R.layout.widget_today);
+        // Launchers reapply updates to an existing tree: replace dynamic children and state.
+        v.setViewVisibility(R.id.widget_courses,View.VISIBLE);
+        if(weekly){
+            v.removeAllViews(R.id.widget_periods);
+            for(int column:COLUMNS)v.removeAllViews(column);
+            for(int head:HEADS){v.setInt(head,"setBackgroundColor",0x00000000);v.setTextColor(head,0xff171717);}
+        }else v.removeAllViews(R.id.widget_courses);
         v.setViewVisibility(R.id.widget_message,View.GONE);
         v.setTextViewText(R.id.widget_title,weekly?"本周课表":"今日课程");
         v.setTextViewText(R.id.widget_date,date.format(DateTimeFormatter.ofPattern("MM月dd日"))+" 周"+DAYS[date.getDayOfWeek().getValue()-1]);

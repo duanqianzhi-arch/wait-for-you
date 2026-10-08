@@ -1,11 +1,11 @@
 {
-  "version": "1.2.0",
-  "versionCode": 6,
+  "version": "1.2.1",
+  "versionCode": 7,
   "applicationId": "cn.henu.study.waitforclass",
   "minAndroid": "8.0",
   "minWebView": 102,
-  "size": 7305728,
-  "sha256": "bb964f4bc1e4c836fc205cf6bf0631cbb115e9334412bb8af591a9768344862b",
+  "size": 7306860,
+  "sha256": "0c8ba4b45a43601ac0ee06e3dc70c53c83595ff5612da117f022a72a37aa53c6",
   "certificateSha256": "b75e65f5f1a72f333b206189c449ac8d2a1a1405235f48babfbe6ff67e45c1c1",
   "signatureVerified": true,
   "permissions": [
@@ -13,7 +13,7 @@
   ],
   "bundledFiles": 22,
   "runtimeStatus": "phone-testing-pending",
-  "file": "dengni-xiake-v1.2.0.apk",
-  "releaseDate": "2026-10-08",
-  "label": "Android1.2.0 compact timetable and today/weekly widgets; phone acceptance pending"
+  "file": "dengni-xiake-v1.2.1.apk",
+  "releaseDate": "2026-10-09",
+  "label": "Android1.2.1 widget refresh replacement and selected-course spelling; Honor import verification pending"
 }

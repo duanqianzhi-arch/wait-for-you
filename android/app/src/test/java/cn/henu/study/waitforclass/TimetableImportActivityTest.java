@@ -9,6 +9,9 @@ import org.robolectric.shadows.ShadowLooper;
 import android.webkit.WebView;
 import android.webkit.WebSettings;
 import android.webkit.ValueCallback;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+import android.widget.Button;
 import java.util.concurrent.TimeUnit;
 import org.json.JSONObject;
 @RunWith(RobolectricTestRunner.class) @Config(sdk=28)
@@ -32,6 +35,46 @@ public class TimetableImportActivityTest {
     }
     private String emptyCompleteImport()throws Exception{
         return JSONObject.quote("{\"adapterVersion\":\"henu-list-1\",\"semester\":\"2026-2027-1\",\"declaredCourseCount\":0,\"complete\":true,\"rows\":[]}");
+    }
+    private String displayedStatus(ControlledReadActivity activity){
+        android.view.ViewGroup content=activity.findViewById(android.R.id.content);
+        LinearLayout root=(LinearLayout)content.getChildAt(0);
+        return ((TextView)root.getChildAt(1)).getText().toString();
+    }
+    private void exhaustRead(ControlledReadActivity activity,String error)throws Exception{
+        for(int i=0;i<40;i++){
+            activity.pageCallback.onReceiveValue(JSONObject.quote(error));
+            ShadowLooper.idleMainLooper(1,TimeUnit.SECONDS);
+        }
+        ShadowLooper.idleMainLooper(2,TimeUnit.SECONDS);
+    }
+    @Test public void rejectedPageCountRemainsVisibleAfterPollingDeadline()throws Exception{
+        ControlledReadActivity activity=Robolectric.buildActivity(ControlledReadActivity.class).setup().get();
+        loggedInHome(activity);
+        exhaustRead(activity,"{\"errorCode\":\"incomplete_table\",\"diagnostics\":{\"check\":\"page_count\",\"pageCount\":2,\"declaredCourseCount\":12}}");
+        String message=displayedStatus(activity);
+        assertTrue("A loaded report rejected for pagination must not be mislabeled as still loading",message.contains("多页")&&message.contains("2"));
+        assertTrue("Include the installed app and rendering engine versions for phone diagnosis",message.contains("App ")&&message.contains("WebView "));
+        assertNull(activity.imported);
+    }
+    @Test public void rejectedCourseCountShowsCountsWithoutPrivateText()throws Exception{
+        ControlledReadActivity activity=Robolectric.buildActivity(ControlledReadActivity.class).setup().get();loggedInHome(activity);
+        exhaustRead(activity,"{\"errorCode\":\"incomplete_table\",\"diagnostics\":{\"check\":\"course_count\",\"declaredCourseCount\":12,\"readCourseCount\":10,\"studentName\":\"PRIVATE_STUDENT\"},\"rows\":[{\"courseText\":\"PRIVATE_COURSE\"}]}");
+        String message=displayedStatus(activity);
+        assertTrue(message.contains("12")&&message.contains("10")&&message.contains("数量"));
+        assertFalse(message.contains("PRIVATE_"));assertNull(activity.imported);
+    }
+    @Test public void unsupportedSelectionHasDistinctReasonAndUnknownErrorsAreNotEchoed()throws Exception{
+        ControlledReadActivity activity=Robolectric.buildActivity(ControlledReadActivity.class).setup().get();loggedInHome(activity);
+        exhaustRead(activity,"{\"errorCode\":\"unsupported_selection_status\",\"status\":\"PRIVATE_STATUS\"}");
+        assertTrue(displayedStatus(activity).contains("选课状态"));assertFalse(displayedStatus(activity).contains("PRIVATE_"));
+        android.view.ViewGroup content=activity.findViewById(android.R.id.content);
+        LinearLayout toolbar=(LinearLayout)((LinearLayout)content.getChildAt(0)).getChildAt(0);
+        ((Button)toolbar.getChildAt(2)).performClick();ShadowLooper.idleMainLooper(1,TimeUnit.SECONDS);
+        exhaustRead(activity,"{\"errorCode\":\"PRIVATE_ERROR\",\"diagnostics\":{\"check\":\"PRIVATE_CHECK\",\"declaredCourseCount\":2510000000}}");
+        String message=displayedStatus(activity);
+        assertFalse("Retry must not retain the previous student's error",message.contains("选课状态"));
+        assertFalse("Untrusted page fields must never be echoed",message.contains("PRIVATE_")||message.contains("2510000000"));assertNull(activity.imported);
     }
     private void cleanupDocumentLoaded(WebView web){
         assertEquals("https://xk.henu.edu.cn/__waitforclass_cleanup__",web.getUrl());

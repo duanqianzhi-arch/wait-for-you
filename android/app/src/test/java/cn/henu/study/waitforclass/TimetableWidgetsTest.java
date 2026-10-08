@@ -23,6 +23,41 @@ public class TimetableWidgetsTest {
         v.measure(View.MeasureSpec.makeMeasureSpec(340,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(height,View.MeasureSpec.EXACTLY));v.layout(0,0,340,height);return v;
     }
     private String text(View v){StringBuilder out=new StringBuilder();if(v instanceof TextView)out.append(((TextView)v).getText()).append('\n');if(v instanceof ViewGroup)for(int i=0;i<((ViewGroup)v).getChildCount();i++)out.append(text(((ViewGroup)v).getChildAt(i)));return out.toString();}
+    @Test public void dailyHostReapplyReplacesCardsInsteadOfAppending()throws Exception {
+        JSONObject t=table();JSONObject first=t.getJSONArray("courses").getJSONObject(0);
+        first.getJSONArray("meetings").getJSONObject(0).put("day",5).put("startPeriod",6).put("endPeriod",8);
+        JSONObject second=new JSONObject(first.toString()).put("key","course-2").put("name","Evening example");
+        second.getJSONArray("meetings").getJSONObject(0).put("startPeriod",11).put("endPeriod",13);t.getJSONArray("courses").put(second);
+        LocalDate friday=LocalDate.of(2026,10,9);
+        View host=TimetableWidgets.build(context(),t,friday,LocalTime.of(7,0),340,380,false).apply(context(),new FrameLayout(context()));
+        for(int n=0;n<3;n++)TimetableWidgets.build(context(),t,friday,LocalTime.of(7,n+1),340,380,false).reapply(context(),host);
+        ViewGroup cards=host.findViewById(R.id.widget_courses);
+        assertEquals("Launcher reuse must leave exactly the two current cards after each refresh",2,cards.getChildCount());
+        assertTrue(text(cards.getChildAt(0)).contains("Example"));assertTrue(text(cards.getChildAt(1)).contains("Evening example"));
+        TimetableWidgets.build(context(),null,friday,LocalTime.NOON,340,380,false).reapply(context(),host);
+        assertEquals("Deleting the timetable must also remove previously rendered private course cards",0,cards.getChildCount());
+        TimetableWidgets.build(context(),t,friday,LocalTime.of(7,0),340,380,false).reapply(context(),host);
+        assertEquals(View.VISIBLE,cards.getVisibility());assertEquals(2,cards.getChildCount());
+    }
+    @Test public void weekHostReapplyResetsRowsHighlightAndOldConflict()throws Exception {
+        JSONObject t=table();JSONObject overlap=new JSONObject(t.getJSONArray("courses").getJSONObject(0).toString()).put("key","course-2").put("name","Other example");t.getJSONArray("courses").put(overlap);
+        View host=TimetableWidgets.build(context(),t,LocalDate.of(2026,10,8),LocalTime.of(7,0),340,400,true).apply(context(),new FrameLayout(context()));
+        assertTrue(text(host).contains("2门"));
+        t.getJSONArray("courses").remove(1);
+        for(int n=0;n<3;n++)TimetableWidgets.build(context(),t,LocalDate.of(2026,10,9),LocalTime.of(7,n+1),340,400,true).reapply(context(),host);
+        assertEquals("The period axis must remain 13 rows on refresh",13,((ViewGroup)host.findViewById(R.id.widget_periods)).getChildCount());
+        assertEquals(13,((ViewGroup)host.findViewById(R.id.widget_day1)).getChildCount());
+        assertEquals(12,((ViewGroup)host.findViewById(R.id.widget_day4)).getChildCount());
+        assertFalse("A resolved conflict must not remain in an older appended grid",text(host).contains("2门"));
+        TextView thursday=host.findViewById(R.id.widget_head4),friday=host.findViewById(R.id.widget_head5);
+        assertEquals("Yesterday's highlighted header must reset",0,((android.graphics.drawable.ColorDrawable)thursday.getBackground()).getColor());
+        assertEquals(0xff171717,thursday.getCurrentTextColor());assertEquals(0xff171717,((android.graphics.drawable.ColorDrawable)friday.getBackground()).getColor());
+        assertEquals(0xffffffff,friday.getCurrentTextColor());
+        TimetableWidgets.build(context(),null,LocalDate.of(2026,10,9),LocalTime.NOON,340,400,true).reapply(context(),host);
+        assertEquals(0,((ViewGroup)host.findViewById(R.id.widget_day4)).getChildCount());
+        TimetableWidgets.build(context(),t,LocalDate.of(2026,10,9),LocalTime.NOON,340,400,true).reapply(context(),host);
+        assertEquals(View.VISIBLE,host.findViewById(R.id.widget_courses).getVisibility());
+    }
     @Test public void dailyNextClassEndedAndEmptyStatesAreTruthful()throws Exception {
         assertTrue(text(view(table(),LocalTime.of(7,30),160,false)).contains("下一节"));
         assertTrue(text(view(table(),LocalTime.of(8,30),160,false)).contains("正在上课"));

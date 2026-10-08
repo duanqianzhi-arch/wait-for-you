@@ -70,7 +70,10 @@
     if(!/2026\s*[-—－]\s*2027\s*学年第一学期/.test(content))return {errorCode:'unsupported_semester'};
     const count=content.match(/课程门数\s*[:：]\s*(\d+)/);
     const pages=content.match(/共\s*(\d+)\s*页/);
-    if(!count||!pages||Number(pages[1])!==1)return {errorCode:'incomplete_table'};
+    if(!count||!pages)return {errorCode:'incomplete_table',diagnostics:{check:'report_footer'}};
+    const declared=Number(count[1]),pageCount=Number(pages[1]);
+    if(!Number.isSafeInteger(declared)||declared<0||declared>500)return {errorCode:'incomplete_table',diagnostics:{check:'course_count'}};
+    if(pageCount!==1)return {errorCode:'incomplete_table',diagnostics:{check:'page_count',...(Number.isSafeInteger(pageCount)&&pageCount>=0&&pageCount<=100?{pageCount}:{}),declaredCourseCount:declared}};
     const required=['课程','上课班级代码','选课状态','上课时间地点'];
     let matches=[];
     for(const table of doc.querySelectorAll('table')){
@@ -85,10 +88,10 @@
       const value=name=>row.cells[index(name)]?.textContent?.trim();
       if(!value('课程'))return {errorCode:'incomplete_table'};
       const status=value('选课状态');
-      if(status!=='选中')return {errorCode:'unsupported_selection_status'};
-      rows.push({courseText:value('课程'),teachingGroupCode:value('上课班级代码'),selectionStatus:status,scheduleText:value('上课时间地点')||''});
+      if(!['选中','已选中'].includes(status))return {errorCode:'unsupported_selection_status'};
+      rows.push({courseText:value('课程'),teachingGroupCode:value('上课班级代码'),selectionStatus:'选中',scheduleText:value('上课时间地点')||''});
     }
-    if(rows.length!==Number(count[1])||rows.length>500)return {errorCode:'incomplete_table'};
+    if(rows.length!==declared||rows.length>500)return {errorCode:'incomplete_table',diagnostics:{check:'course_count',declaredCourseCount:declared,...(rows.length<=500?{readCourseCount:rows.length}:{})}};
     return {adapterVersion:'henu-list-1',semester:'2026-2027-1',declaredCourseCount:rows.length,complete:true,rows};
   }
   return {extract,prepare};

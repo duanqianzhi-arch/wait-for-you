@@ -1,9 +1,9 @@
 <!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>检查更新 · 等你下课</title>
 <style>@font-face{font-family:hand;src:url(assets/study-note-hand.woff2)}*{box-sizing:border-box}body{margin:0;background:#f4f4f2;color:#171717;font-family:hand,sans-serif;line-height:1.7}main{max-width:480px;margin:40px auto;padding:24px}header{font-size:24px}img{display:block;width:150px;height:150px;object-fit:contain;margin:24px auto}section{padding:24px;border:2px solid #171717;border-radius:18px;background:#fff}h1{font-size:30px;margin:0 0 16px}p{color:#555}a{color:inherit}#download{display:block;text-align:center;background:#171717;color:#fff;border-radius:12px;padding:12px;text-decoration:none;font-size:22px}#download[hidden]{display:none}small{display:block;margin-top:20px;color:#666}</style></head>
-<body><main><header>等你下课 · 去自习，好吗？</header><img src="assets/ink-dog-app-icon.png" alt="咖喱狗等你一起自习"><section><h1>下载安卓 App</h1><p id="status">最新版 1.2.0 · 2026年10月8日</p><p>课表与组件测试版：七天课表适应手机屏幕，连堂课程按节数展开，支持双指缩放。新增今日课程与本周课表桌面组件，编辑课程后同步刷新。桌面添加、尺寸调整及覆盖更新仍需你在手机上确认。</p><a id="download" href="./downloads/dengni-xiake-v1.2.0.apk" download="等你下课-v1.2.0.apk">下载 1.2.0</a><small>下载后直接覆盖安装，请保留原应用。收藏与偏好应当保留，覆盖更新效果请在手机上确认。</small></section><p><a href="./#settings">返回网页版</a></p></main>
+<body><main><header>等你下课 · 去自习，好吗？</header><img src="assets/ink-dog-app-icon.png" alt="咖喱狗等你一起自习"><section><h1>下载安卓 App</h1><p id="status">最新版 1.2.1 · 2026年10月9日</p><p>修复桌面组件刷新后重复课程、旧冲突卡片残留与日期高亮未复位。兼容学校“已选中”的课程状态；没有具体节次的线上课保留待核对。导入失败时显示具体检查原因及网页组件版本，荣耀手机仍需再次验证。</p><a id="download" href="./downloads/dengni-xiake-v1.2.1.apk" download="等你下课-v1.2.1.apk">下载 1.2.1</a><small>下载后直接覆盖安装，请保留原应用。收藏与偏好应当保留，覆盖更新效果请在手机上确认。</small></section><p><a href="./#settings">返回网页版</a></p></main>
 <script>
-const latestCode=6,latestVersion='1.2.0';
+const latestCode=7,latestVersion='1.2.1';
 const raw=new URLSearchParams(location.search).get('versionCode');
 const current=raw&&/^\d+$/.test(raw)?Number(raw):0;
 if(Number.isSafeInteger(current)&&current>0){

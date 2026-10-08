@@ -26,6 +26,7 @@ public class TimetableImportActivity extends Activity {
     private boolean probeInFlight,probeScheduled;
     private long readDeadline;
     private String extractor;
+    private String lastReadFailure="";
 
     @Override public void onCreate(Bundle state){
         super.onCreate(state);
@@ -35,7 +36,7 @@ public class TimetableImportActivity extends Activity {
         Button close=new Button(this);close.setText("关闭");close.setOnClickListener(v->finish());toolbar.addView(close);
         TextView domain=new TextView(this);domain.setText("河南大学教务\nxk.henu.edu.cn");domain.setTextSize(16);domain.setTextColor(Color.BLACK);
         toolbar.addView(domain,new LinearLayout.LayoutParams(0,-2,1));
-        Button retry=new Button(this);retry.setText("重试");retry.setOnClickListener(v->{if(closing)return;generation++;handler.removeCallbacksAndMessages(null);attempts=0;readDeadline=0;probeInFlight=false;probeScheduled=false;delivered=false;if(!loginReady)beginSchoolLogin();else if(TimetableImportPolicy.acceptsImportContainer(browser.getUrl()))requestRead(generation);else browser.loadUrl(TimetableImportPolicy.LOGIN);});toolbar.addView(retry);root.addView(toolbar);
+        Button retry=new Button(this);retry.setText("重试");retry.setOnClickListener(v->{if(closing)return;generation++;handler.removeCallbacksAndMessages(null);attempts=0;readDeadline=0;lastReadFailure="";probeInFlight=false;probeScheduled=false;delivered=false;if(!loginReady)beginSchoolLogin();else if(TimetableImportPolicy.acceptsImportContainer(browser.getUrl()))requestRead(generation);else browser.loadUrl(TimetableImportPolicy.LOGIN);});toolbar.addView(retry);root.addView(toolbar);
         status=new TextView(this);status.setText("请在学校原网页自行登录，程序随后自动读取课表。");status.setTextColor(Color.DKGRAY);status.setPadding(16,10,16,10);root.addView(status);
         browser=new WebView(this);browser.setId(R.id.timetable_import_webview);root.addView(browser,new LinearLayout.LayoutParams(-1,0,1));
         WebSettings settings=browser.getSettings();settings.setJavaScriptEnabled(true);settings.setDomStorageEnabled(true);
@@ -52,7 +53,7 @@ public class TimetableImportActivity extends Activity {
                 if(CLEANUP_URL.equals(url))return new WebResourceResponse("text/html","UTF-8",200,"OK",Collections.singletonMap("Cache-Control","no-store"),new ByteArrayInputStream(CLEANUP_HTML.getBytes(StandardCharsets.UTF_8)));
                 return TimetableImportPolicy.acceptsNavigation(url)?null:rejected();
             }
-            @Override public void onPageStarted(WebView view,String url,android.graphics.Bitmap icon){generation++;attempts=0;readDeadline=0;probeInFlight=false;probeScheduled=false;if(!closing)handler.removeCallbacksAndMessages(null);}
+            @Override public void onPageStarted(WebView view,String url,android.graphics.Bitmap icon){generation++;attempts=0;readDeadline=0;lastReadFailure="";probeInFlight=false;probeScheduled=false;if(!closing)handler.removeCallbacksAndMessages(null);}
             @Override public void onPageCommitVisible(WebView view,String url){requestRead(generation);}
             @Override public void onPageFinished(WebView view,String url){
                 if(destroyed||closing||url==null)return;
@@ -109,9 +110,9 @@ public class TimetableImportActivity extends Activity {
     private void readPage(int started){
         if(destroyed||closing||delivered||!loginReady||probeInFlight||started!=generation||!TimetableImportPolicy.acceptsImportContainer(browser.getUrl()))return;
         long now=android.os.SystemClock.uptimeMillis();if(readDeadline==0)readDeadline=now+40000;
-        if(attempts++>=40||now>=readDeadline){status.setText("未能读取完整个人课表，请点重试；原有课表未改变。");return;}
+        if(attempts++>=40||now>=readDeadline){status.setText(failureStatus("未能读取完整个人课表"));return;}
         probeInFlight=true;status.setText("已登录，正在打开并识别本人课表…");
-        Runnable timedOut=()->{if(started==generation&&probeInFlight&&!destroyed&&!closing){probeInFlight=false;attempts=40;status.setText("读取课表超时，请点重试；原有课表未改变。");}};
+        Runnable timedOut=()->{if(started==generation&&probeInFlight&&!destroyed&&!closing){probeInFlight=false;attempts=40;status.setText(failureStatus("读取课表超时"));}};
         handler.postDelayed(timedOut,Math.min(10000,readDeadline-now));
         evaluateTimetablePage(value->{
             if(destroyed||closing||delivered||!probeInFlight||!TimetableImportPolicy.acceptsResult(started,generation,browser.getUrl(),value==null?0:value.getBytes(StandardCharsets.UTF_8).length))return;
@@ -122,6 +123,7 @@ public class TimetableImportActivity extends Activity {
                 JSONObject result=new JSONObject((String)decoded);
                 if(result.has("errorCode")){
                     String error=result.optString("errorCode");
+                    lastReadFailure=describeReadFailure(result);
                     if("unsupported_semester".equals(error)){status.setText("当前先支持2026—2027第一学期，请选择这个学期后点重试。");return;}
                     String phase=result.optString("stage");
                     status.setText("opening-menu".equals(phase)?"已登录，正在打开教学安排…":"selecting-list".equals(phase)?"正在切换课表列表…":"课表框架还在加载，正在等待完整课表…");
@@ -129,8 +131,34 @@ public class TimetableImportActivity extends Activity {
                 }
                 if(!result.optBoolean("complete")||!result.has("rows"))throw new JSONException("incomplete_result");
                 delivered=true;onParsed(result);
-            }catch(Exception invalid){status.setText("未能识别完整课表，请重试。原有课表未改变。");}
+            }catch(Exception invalid){lastReadFailure="手机网页组件未返回可识别的课表数据";status.setText(failureStatus("未能识别完整课表"));}
         });
+    }
+    private static int diagnosticNumber(JSONObject data,String key,int max){
+        Object value=data==null?null:data.opt(key);
+        if(!(value instanceof Integer))return -1;
+        int number=(Integer)value;return number>=0&&number<=max?number:-1;
+    }
+    private static String describeReadFailure(JSONObject result){
+        switch(result.optString("errorCode")){
+            case "incomplete_table":
+                JSONObject details=result.optJSONObject("diagnostics");String check=details==null?"":details.optString("check");
+                if("page_count".equals(check)){int pages=diagnosticNumber(details,"pageCount",100);return "学校课表为多页报告"+(pages>=0?"（共 "+pages+" 页）":"")+"，尚未确认全部课程";}
+                if("report_footer".equals(check))return "未找到学校课表的课程总数或页数标记";
+                if("course_count".equals(check)){int expected=diagnosticNumber(details,"declaredCourseCount",500),actual=diagnosticNumber(details,"readCourseCount",500);return "课表课程数量未通过完整性检查"+(expected>=0&&actual>=0?"（应有 "+expected+" 门，读取 "+actual+" 门）":"");}
+                return "学校课表的数量、页数或必要字段不完整";
+            case "unsupported_selection_status":return "存在尚不支持的选课状态";
+            case "unrecognized_table":return "学校课表格式尚未识别";
+            case "not_timetable":return "学校课表框架尚未读取到";
+            case "not_ready":return "学校课表框架仍在加载";
+            default:return "学校返回的课表结果尚未识别";
+        }
+    }
+    private static String safeVersion(String value){return value!=null&&value.matches("[A-Za-z0-9._()\\-]{1,80}")?value:"未知";}
+    private String failureStatus(String title){
+        String app="未知",engine="未知";
+        try{app=safeVersion(getPackageManager().getPackageInfo(getPackageName(),0).versionName);android.content.pm.PackageInfo provider=WebView.getCurrentWebViewPackage();if(provider!=null)engine=safeVersion(provider.versionName);}catch(RuntimeException|android.content.pm.PackageManager.NameNotFoundException unavailable){}
+        return title+"："+(lastReadFailure.isEmpty()?"手机网页组件尚未完成读取":lastReadFailure)+"。请点重试；原有课表未改变。\nApp "+app+" · Android API "+android.os.Build.VERSION.SDK_INT+" · WebView "+engine;
     }
     protected void onParsed(JSONObject raw){
         try{
