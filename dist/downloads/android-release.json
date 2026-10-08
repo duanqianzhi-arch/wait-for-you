@@ -1,11 +1,11 @@
 {
-  "version": "1.1.2",
-  "versionCode": 5,
+  "version": "1.2.0",
+  "versionCode": 6,
   "applicationId": "cn.henu.study.waitforclass",
   "minAndroid": "8.0",
   "minWebView": 102,
-  "size": 7284776,
-  "sha256": "48ed17a602ba3b0a2144b665599179c7da935fd9ebfb4a1ca6820eb9989ea6e1",
+  "size": 7305512,
+  "sha256": "72a3f41e946005a78e671e301b220feff6bfc94371906cddc3164ad85aa372ae",
   "certificateSha256": "b75e65f5f1a72f333b206189c449ac8d2a1a1405235f48babfbe6ff67e45c1c1",
   "signatureVerified": true,
   "permissions": [
@@ -13,7 +13,7 @@
   ],
   "bundledFiles": 22,
   "runtimeStatus": "phone-testing-pending",
-  "file": "dengni-xiake-v1.1.2.apk",
+  "file": "dengni-xiake-v1.2.0.apk",
   "releaseDate": "2026-10-08",
-  "label": "Android 1.1.2 school menu and nested frame import fix; phone acceptance pending"
+  "label": "Android1.2.0 compact timetable and today/weekly widgets; phone acceptance pending"
 }
