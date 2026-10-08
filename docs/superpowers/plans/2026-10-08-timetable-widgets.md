@@ -65,14 +65,18 @@
 
 ## Task 4：测试包、复核与交付
 
-**Files:** 版本配置、`dist/android-release.json`、下载页、SW版本和包内资产列表/产物测试中确有版本关联的文件；新建 `docs/releases/1.2.0-testing.md`，更新维护交接与项目记忆。
+**Files:** 版本配置、`dist/downloads/android-release.json`、下载页、SW版本和包内资产列表/产物测试中确有版本关联的文件；新建 `docs/releases/1.2.0-testing.md`，更新维护交接与项目记忆。
 
 - [x] Step1：将应用名版本／code／文件名／下载metadata统一为1.2.0/code6，检查更新仍指正式站但参数6。构建signed release和androidTest；复制实际APK，计算字节数/hash，旧候选从当前dist移除，正式1.0.1包保留。
 - [x] Step2：执行 `pnpm test`、`:app:testDebugUnitTest :app:assembleRelease :app:assembleDebugAndroidTest`；用apksigner/aapt核对原签名、版本及权限。所有通过后不无故重复拓宽测试。
-- [ ] Step3：按 requesting-code-review 技能做本次分支变更独立复核，修复有证据的问题并验证；更新已有草稿PR，不合并正式分支。
-- [ ] Step4：沿用用户已授权的Cloudflare独立Preview上传公开dist，验证线上metadata、APK实际下载hash和匿名截图，生成测试链接；正式发布等待手机验收。
-- [ ] Step5：保存记忆与必要交接，给用户覆盖安装、课表缩放、两个组件添加/调整、编辑刷新/删课清空的简短测试步骤。
+- [x] Step3：按 requesting-code-review 技能做本次分支变更独立复核，修复有证据的问题并验证；更新已有草稿PR，不合并正式分支。
+- [x] Step4：沿用用户已授权的Cloudflare独立Preview上传公开dist，验证线上metadata、APK实际下载hash和匿名截图，生成测试链接；正式发布等待手机验收。
+- [x] Step5：保存记忆与必要交接，给用户覆盖安装、课表缩放、两个组件添加/调整、编辑刷新/删课清空的简短测试步骤。
 
 ## 执行与审批
 
 本计划已经自检映射到全部spec：Task1页面，Task2共同数据，Task3两个组件／添加／刷新，Task4版本／发布／测试边界。用户已选择两个组件，执行方式保留本人直接实施；用户已于2026-10-08批准按此计划继续。
+
+## 交付状态（2026-10-08）
+
+1.2.0/code6已交付独立测试预览，线上实际APK哈希已核对；正式站仍1.0.1。独立复核提出的两个最低尺寸问题均经失败→通过回归修正。12项前端脚本与31项原生测试、签名release与androidTest编译通过。真实手机桌面添加、周期刷新和覆盖安装尚待用户验收，草稿PR未合并。
