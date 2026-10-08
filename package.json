@@ -1,11 +1,11 @@
 {
   "name": "dengni-xiake",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "license": "MIT",
   "private": true,
   "description": "河南大学明伦与金明校区自习教室推荐",
   "scripts": {
-    "test": "node test-core.cjs && node test-building-policy.cjs && node test-flow.cjs && node test-native-ui.cjs && node test-android-download.cjs && node test-instrumentation-flow.cjs && node test-update-page.cjs && node test-personal-timetable.cjs && node test-henu-adapter.cjs && node test-timetable-ui.cjs"
+    "test": "node test-core.cjs && node test-building-policy.cjs && node test-flow.cjs && node test-native-ui.cjs && node test-android-download.cjs && node test-instrumentation-flow.cjs && node test-update-page.cjs && node test-personal-timetable.cjs && node test-henu-adapter.cjs && node test-timetable-ui.cjs && node test-release-artifact.cjs"
   },
   "devDependencies": { "jsdom": "26.1.0" }
 }

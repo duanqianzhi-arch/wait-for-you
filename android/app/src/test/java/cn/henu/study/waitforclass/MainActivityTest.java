@@ -33,7 +33,7 @@ public class MainActivityTest {
         WebResourceResponse html=web.getWebViewClient().shouldInterceptRequest(web, "https://appassets.androidplatform.net/assets/www/index.html");
         assertNotNull(html);
         String content=new String(html.getData().readAllBytes(),StandardCharsets.UTF_8);
-        assertTrue(content.contains("data-native-app=\"1.0.1\""));
+        assertTrue(content.contains("data-native-app=\"1.1.0\""));
         assertTrue(content.contains("等你下课"));
         WebResourceResponse data=web.getWebViewClient().shouldInterceptRequest(web,"https://appassets.androidplatform.net/assets/www/data.js");
         assertTrue(data.getData().readAllBytes().length>1000);
@@ -44,13 +44,13 @@ public class MainActivityTest {
     @Test public void updateLinkOpensOnlyOurTrustedBrowserPage(){
         MainActivity activity=Robolectric.buildActivity(MainActivity.class).setup().get();
         WebView web=activity.findViewById(R.id.main_webview);
-        String url="https://henu-study.pages.dev/android-update.html?versionCode=2";
+        String url="https://henu-study.pages.dev/android-update.html?versionCode=3";
         assertTrue(web.getWebViewClient().shouldOverrideUrlLoading(web,url));
         android.content.Intent intent=org.robolectric.Shadows.shadowOf(activity).getNextStartedActivity();
         assertNotNull(intent);
         assertEquals(android.content.Intent.ACTION_VIEW,intent.getAction());
         assertEquals(url,intent.getDataString());
-        web.getWebViewClient().shouldOverrideUrlLoading(web,"https://evil.example/android-update.html?versionCode=2");
+        web.getWebViewClient().shouldOverrideUrlLoading(web,"https://evil.example/android-update.html?versionCode=3");
         web.getWebViewClient().shouldOverrideUrlLoading(web,"https://henu-study.pages.dev/other");
         assertNull(org.robolectric.Shadows.shadowOf(activity).getNextStartedActivity());
         web.getWebViewClient().shouldOverrideUrlLoading(web,updateRequest(url,false));
@@ -69,7 +69,7 @@ public class MainActivityTest {
         };
     }
     @Test public void oldWebViewShowsAnExplanationInsteadOfBlankScreen(){
-        PackageInfo old=new PackageInfo();old.versionName="101.0.1.0";
+        PackageInfo old=new PackageInfo();old.versionName="101.1.0.0";
         ShadowWebView.setCurrentWebViewPackage(old);
         MainActivity activity=Robolectric.buildActivity(MainActivity.class).setup().get();
         assertNull(activity.findViewById(R.id.main_webview));
