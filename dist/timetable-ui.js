@@ -6,6 +6,21 @@
   const escape=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const days=['一','二','三','四','五','六','日'];
   const clone=v=>JSON.parse(JSON.stringify(v));
+  function layoutMeetings(entries){
+    const result=[];
+    for(let day=1;day<=7;day++){
+      const sorted=entries.filter(e=>e.meeting.day===day).sort((a,b)=>a.meeting.startPeriod-b.meeting.startPeriod||a.meeting.endPeriod-b.meeting.endPeriod||a.course.key.localeCompare(b.course.key));
+      let group=[],end=0;
+      const flush=()=>{
+        const lanes=[];
+        for(const entry of group){let lane=lanes.findIndex(last=>last<entry.meeting.startPeriod);if(lane<0)lane=lanes.length;lanes[lane]=entry.meeting.endPeriod;entry.lane=lane;}
+        for(const entry of group)result.push({...entry,lanes:lanes.length});group=[];
+      };
+      for(const entry of sorted){if(group.length&&entry.meeting.startPeriod>end)flush();if(!group.length)end=0;group.push({...entry});end=Math.max(end,entry.meeting.endPeriod);}
+      flush();
+    }
+    return result;
+  }
   function createNativeBridge(browser){
     const endpoint=browser.StudyTimetableBridge,pending=new Map(),listeners=new Set();let sequence=0;
     const supported=Boolean(endpoint&&typeof endpoint.postMessage==='function');
@@ -28,7 +43,8 @@
   }
   function createTimetableUI({core,native,renderHost,navigate,toast}){
     let activeRoute='timetable';
-    const state={table:null,loaded:!native.supported,week:1,current:true,busy:false,error:'',preview:null,previewValues:{},editDraft:null,clearConfirm:false,today:core.chinaToday()};
+    const state={table:null,loaded:!native.supported,week:1,current:true,busy:false,error:'',preview:null,previewValues:{},editDraft:null,clearConfirm:false,today:core.chinaToday(),zoom:1};
+    let pinch=null,suppressCourseUntil=0;
     const button=(action,label,extra='',cls='secondary-button')=>`<button type="button" class="${cls}" data-timetable-action="${action}" ${extra}>${label}</button>`;
     const courseButton=(course,body=escape(course.name),cls='timetable-course')=>button('course',body,`data-course="${escape(course.key)}"`,cls);
     const heading=(title,subtitle)=>`<header class="page-heading"><h1 tabindex="-1">${title}</h1><p>${subtitle}</p></header>`;
@@ -58,9 +74,14 @@
       const start=Date.parse(table.firstMonday+'T00:00:00Z')+(state.week-1)*604800000;
       const dates=days.map((_,i)=>new Date(start+i*86400000).toISOString().slice(0,10));
       const notice=actual<1||actual>table.maxWeek?'今天不在已导入的学期内。':`${core.chinaToday()} · 本周是第 ${actual} 周`;
-      const rows=core.PERIODS.map((period,index)=>`<tr><th scope="row"><b>${index+1}</b><small>${core.clock(period[0])}<br>${core.clock(period[1])}</small></th>${days.map((_,day)=>`<td>${entries.filter(e=>e.meeting.day===day+1&&e.meeting.startPeriod===index+1).map(({course,meeting})=>courseButton(course,`<b>${escape(course.name)}</b><small>${meeting.startPeriod}–${meeting.endPeriod} 节 · ${core.clock(core.PERIODS[meeting.startPeriod-1][0])}–${core.clock(core.PERIODS[meeting.endPeriod-1][1])}</small><span>${escape(meeting.location||'地点待补充')}</span>${table.overrides.some(o=>o.courseKey===course.key)?'<small>有本地修改</small>':''}`)).join('')}</td>`).join('')}</tr>`).join('');
+      const rows=core.PERIODS.map((period,index)=>`<div class="timetable-period" aria-hidden="true" style="grid-row:${index+2};grid-column:1"><b>${index+1}</b><small>${core.clock(period[0])}<br>${core.clock(period[1])}</small></div>${days.map((_,day)=>`<div class="timetable-cell" aria-hidden="true" style="grid-row:${index+2};grid-column:${day+2}"></div>`).join('')}`).join('');
+      const blocks=layoutMeetings(entries).map(({course,meeting,lane,lanes})=>{
+        const label=`${course.name}，周${days[meeting.day-1]}，${meeting.startPeriod}–${meeting.endPeriod} 节，${core.clock(core.PERIODS[meeting.startPeriod-1][0])}–${core.clock(core.PERIODS[meeting.endPeriod-1][1])}，${meeting.location||'地点待补充'}，点击查看和修改`;
+        return button('course',`<b>${escape(course.name)}</b><span>${escape(meeting.location||'地点待补充')}</span>`,`data-course="${escape(course.key)}" aria-label="${escape(label)}" style="grid-column:${meeting.day+1};grid-row:${meeting.startPeriod+1} / ${meeting.endPeriod+2};width:calc(${100/lanes}% - 3px);margin-left:calc(${lane*100/lanes}% + 1px)"`,'timetable-course');
+      }).join('');
+      const grid=`<div class="timetable-zoom-controls" aria-label="课表缩放"><span>双指缩放 · 点课程可修改</span>${button('zoom-out','−',`aria-label="缩小课表" ${state.zoom<=1?'disabled':''}`)}<output data-timetable-zoom>${Math.round(state.zoom*100)}%</output>${button('zoom-in','+',`aria-label="放大课表" ${state.zoom>=2.2?'disabled':''}`)}${button('zoom-fit','适应屏幕')}</div><div class="timetable-scroll" tabindex="0" role="region" aria-label="第 ${state.week} 周课表，可缩放及滑动"><div class="weekly-timetable" style="--timetable-zoom:${state.zoom}"><span class="timetable-day timetable-corner" aria-hidden="true" style="grid-column:1;grid-row:1">节</span>${days.map((day,i)=>`<div class="timetable-day ${dates[i]===core.chinaToday()?'is-today':''}" style="grid-column:${i+2};grid-row:1">周${day}<small>${dates[i].slice(5).replace('-','/')}</small></div>`).join('')}${rows}${blocks}</div></div>`;
       const others=table.courses.filter(c=>c.unscheduled||c.pendingSchedules.length||c.localOnly);
-      return heading('我的课表','Your week, at a glance.')+error()+`<div class="timetable-toolbar">${button('previous-week','←',`aria-label="上一周" ${state.week<=1||state.busy?'disabled':''}`)}<strong>第 ${state.week} 周</strong>${button('next-week','→',`aria-label="下一周" ${state.week>=table.maxWeek||state.busy?'disabled':''}`)}${button('current-week','本周',state.busy?'disabled':'')}</div><p class="helper">${notice} · 左右滑动查看整周，点课程可修改。</p><div class="timetable-scroll" tabindex="0" role="region" aria-label="周课表，可左右滑动"><table class="weekly-timetable"><caption class="sr-only">第 ${state.week} 周课程安排</caption><thead><tr><th scope="col">节次</th>${days.map((day,i)=>`<th scope="col" ${dates[i]===core.chinaToday()?'class="is-today"':''}>周${day}<small>${dates[i].slice(5).replace('-','/')}</small></th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>${entries.length?'':'<p class="timetable-no-course">这一周没有已排课的课程。</p>'}${others.length?`<details class="timetable-other"><summary>待完善或本地保留的课程（${others.length}）</summary><div class="timetable-other-list">${others.map(c=>courseButton(c)).join('')}</div></details>`:''}<div class="timetable-actions">${button('import','重新同步',state.busy?'disabled':'')}${button('clear','删除个人课表',state.busy?'disabled':'')}</div><p class="helper">学校记录更新后，请主动同步。个人课表独立于右上角的自习校区。</p>${state.clearConfirm?`<section class="timetable-confirm" role="region" aria-label="确认删除个人课表"><p>删除这台手机的个人课表和本地修改？教室收藏会保留。</p>${button('confirm-clear','确认删除',state.busy?'disabled':'')}${button('cancel-clear','取消',state.busy?'disabled':'')}</section>`:''}`;
+      return `<div class="timetable-week-heading"><h1 tabindex="-1">我的课表</h1><div class="timetable-toolbar">${button('previous-week','←',`aria-label="上一周" ${state.week<=1||state.busy?'disabled':''}`)}<strong>第 ${state.week} 周</strong>${button('next-week','→',`aria-label="下一周" ${state.week>=table.maxWeek||state.busy?'disabled':''}`)}${button('current-week','本周',state.busy?'disabled':'')}</div></div>`+error()+`<p class="timetable-date-notice">${notice}</p>${grid}${entries.length?'':'<p class="timetable-no-course">这一周没有已排课的课程。</p>'}${others.length?`<details class="timetable-other"><summary>待完善或本地保留的课程（${others.length}）</summary><div class="timetable-other-list">${others.map(c=>courseButton(c)).join('')}</div></details>`:''}<div class="timetable-actions">${button('import','重新同步',state.busy?'disabled':'')}${button('clear','删除个人课表',state.busy?'disabled':'')}</div><p class="helper">学校记录更新后，请主动同步。个人课表独立于右上角的自习校区。</p>${state.clearConfirm?`<section class="timetable-confirm" role="region" aria-label="确认删除个人课表"><p>删除这台手机的个人课表和本地修改？教室收藏会保留。</p>${button('confirm-clear','确认删除',state.busy?'disabled':'')}${button('cancel-clear','取消',state.busy?'disabled':'')}</section>`:''}`;
     }
     function detail(route){
       let key;try{key=decodeURIComponent(route.slice('timetable/course/'.length));}catch(_){key='';}
@@ -102,7 +123,8 @@
     async function perform(action,target){
       if(state.busy)return;
       state.error='';
-      if(action==='course'){navigate('timetable/course/'+encodeURIComponent(target.dataset.course));return;}
+      if(action==='course'){if(Date.now()>=suppressCourseUntil)navigate('timetable/course/'+encodeURIComponent(target.dataset.course));return;}
+      if(action.startsWith('zoom-')){setZoom(action==='zoom-fit'?1:state.zoom+(action==='zoom-in'?.2:-.2),target.ownerDocument);return;}
       if(action==='back'||action==='cancel-preview'){state.preview=null;state.editDraft=null;navigate('timetable');return;}
       if(action==='previous-week'||action==='next-week'){state.week=Math.max(1,Math.min(18,state.week+(action==='next-week'?1:-1)));state.current=false;repaint();return;}
       if(action==='current-week'){setCurrent();repaint();return;}
@@ -162,8 +184,25 @@
       return true;
     }
     function handleBack(){if(state.preview||state.clearConfirm||activeRoute.startsWith('timetable/course/')){state.preview=null;state.clearConfirm=false;state.editDraft=null;navigate('timetable');return true;}return false;}
+    function setZoom(value,document){
+      state.zoom=Math.round(Math.max(1,Math.min(2.2,value))*100)/100;
+      const grid=document.querySelector('.weekly-timetable');if(!grid)return;
+      grid.style.setProperty('--timetable-zoom',String(state.zoom));
+      document.querySelector('[data-timetable-zoom]').textContent=Math.round(state.zoom*100)+'%';
+      document.querySelector('[data-timetable-action="zoom-out"]').disabled=state.zoom<=1;
+      document.querySelector('[data-timetable-action="zoom-in"]').disabled=state.zoom>=2.2;
+    }
+    function handleTouch(event){
+      const scroll=event.target.closest?.('.timetable-scroll');if(!scroll)return false;
+      const touches=event.touches,span=()=>Math.hypot(touches[0].clientX-touches[1].clientX,touches[0].clientY-touches[1].clientY);
+      if(event.type==='touchstart'&&touches.length===2){pinch={scroll,span:Math.max(1,span()),zoom:state.zoom};event.preventDefault();return true;}
+      if(!pinch)return false;
+      if(event.type==='touchmove'&&touches.length===2){event.preventDefault();setZoom(pinch.zoom*span()/pinch.span,scroll.ownerDocument);return true;}
+      if(event.type==='touchend'||event.type==='touchcancel'){suppressCourseUntil=Date.now()+400;if(touches.length<2)pinch=null;return true;}
+      return false;
+    }
     function refreshToday(){const today=core.chinaToday();if(today!==state.today){state.today=today;if(state.current)setCurrent();repaint();}}
-    return {ready,render,handleAction,handleInput,handleSubmit,handleBack,refreshToday};
+    return {ready,render,handleAction,handleInput,handleSubmit,handleBack,refreshToday,handleTouch};
   }
   return {createTimetableUI,createNativeBridge};
 });

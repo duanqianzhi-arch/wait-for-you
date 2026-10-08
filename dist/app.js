@@ -296,6 +296,7 @@
   }
   document.addEventListener('pointerup',event=>endTear(event));
   document.addEventListener('pointercancel',event=>endTear(event,true));
+  for(const type of ['touchstart','touchmove','touchend','touchcancel'])document.addEventListener(type,event=>timetableUI?.handleTouch(event),{passive:false});
   function onRouteChange() {
     scrollPositions.set(route,window.scrollY);
     const next=getRoute();
