@@ -29,6 +29,7 @@ public class MainActivity extends Activity {
     private FrameLayout root;
     private boolean handlingBack;
     private TimetableController timetableController;
+    private AppUpdateController updateController;
 
     @Override public void onCreate(Bundle state){
         super.onCreate(state);
@@ -81,6 +82,7 @@ public class MainActivity extends Activity {
         });
         timetableController=new TimetableController(this,webView,new TimetableStore(this));
         timetableController.attach();
+        updateController=new AppUpdateController(this,webView);updateController.attach();
         root.addView(webView,new FrameLayout.LayoutParams(-1,-1));
         if(state==null || webView.restoreState(state)==null)webView.loadUrl(widgetRoute(this,getIntent()));
     }
@@ -97,7 +99,7 @@ public class MainActivity extends Activity {
     }
     @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);if(webView!=null)webView.loadUrl(widgetRoute(this,intent));}
     private boolean openUpdatePage(String url){
-        if(!"https://henu-study.pages.dev/android-update.html?versionCode=10".equals(url))return false;
+        if(!"https://henu-study.pages.dev/android-update.html?versionCode=11".equals(url))return false;
         try { startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(url))); }
         catch(ActivityNotFoundException unavailable){Toast.makeText(this,"请用浏览器打开 henu-study.pages.dev 查看新版本。",Toast.LENGTH_LONG).show();}
         return true;
@@ -154,6 +156,7 @@ public class MainActivity extends Activity {
     @Override protected void onPause(){if(webView!=null)webView.onPause();super.onPause();}
     @Override protected void onResume(){super.onResume();if(webView!=null)webView.onResume();TimetableWidgets.refreshAll(this);}
     @Override protected void onDestroy(){
+        if(updateController!=null)updateController.close();
         if(webView!=null){root.removeView(webView);webView.destroy();webView=null;}
         super.onDestroy();
     }

@@ -1,19 +1,20 @@
 {
-  "version": "1.2.4",
-  "versionCode": 10,
+  "version": "1.2.5",
+  "versionCode": 11,
   "applicationId": "cn.henu.study.waitforclass",
   "minAndroid": "8.0",
   "minWebView": 102,
-  "size": 7307696,
-  "sha256": "979923b8c9902577810e6ee16500524f4ce5fccd5a208aa3963d07c6f4278ce3",
+  "size": 7313590,
+  "sha256": "8e7fa5d54ee9b82bed5f4b05b5d38130f8721c37b7b6af78025106adbf22f688",
   "certificateSha256": "b75e65f5f1a72f333b206189c449ac8d2a1a1405235f48babfbe6ff67e45c1c1",
   "signatureVerified": true,
   "permissions": [
     "android.permission.INTERNET"
   ],
-  "bundledFiles": 22,
-  "runtimeStatus": "phone-testing-pending",
-  "file": "dengni-xiake-v1.2.4.apk",
+  "bundledFiles": 23,
+  "runtimeStatus": "public-beta",
+  "file": "dengni-xiake-v1.2.5.apk",
   "releaseDate": "2026-10-09",
-  "label": "Android1.2.4 fits widget grid to launcher exact sizes and portrait/landscape ranges; Honor widget verification pending"
+  "label": "Public beta: automatic update checks and local Safari timetable import",
+  "notes": "自动检查更新；新增iPhone网页课表导入、周切换与课程修改。"
 }

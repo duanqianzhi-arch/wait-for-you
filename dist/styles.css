@@ -23,3 +23,8 @@ dialog{width:min(480px,calc(100vw - 30px));max-height:85dvh;padding:25px;backgro
 .timetable-period{line-height:1.25}@media(max-width:780px){.timetable-page{margin-inline:-11px;width:calc(100% + 22px);padding-inline:0}}
 .timetable-period{line-height:1}
 .timetable-widget-controls{margin-top:12px}.timetable-widget-controls>button{min-height:36px;font-size:15px;padding:5px 12px}.timetable-widget-controls section{border-left:2px solid #171717;padding-left:12px;margin-top:12px}.timetable-widget-controls section p{font-size:14px;margin-block:7px}.timetable-widget-controls .timetable-actions{margin-block:9px}
+
+.app-update-notice{display:flex;gap:12px;align-items:center;margin:12px 24px;padding:14px;border:1px solid #171717;border-radius:10px;background:#fff;font-size:16px}
+.app-update-notice[hidden]{display:none}.app-update-notice p{margin:4px 0;font-size:14px}.app-update-notice>div{flex:1}.app-update-notice a{white-space:nowrap}.app-update-notice button{border:0;background:transparent;white-space:nowrap}
+.web-import-steps,.web-shortcut-guide ol{padding-left:24px}.web-import-steps li,.web-shortcut-guide li{margin:12px 0;line-height:1.7}.web-shortcut-guide{margin:20px 0;padding:16px;border:1px solid #bbb;border-radius:8px}.web-shortcut-guide summary{cursor:pointer}.timetable-page textarea[data-web-import],.web-shortcut-guide textarea{font-family:system-ui,sans-serif;font-size:14px;line-height:1.5;width:100%;max-width:100%;overflow-wrap:anywhere}
+@media(max-width:600px){.app-update-notice{margin:10px 12px;flex-wrap:wrap}.app-update-notice>div{flex-basis:100%}.web-shortcut-guide{padding:12px}}

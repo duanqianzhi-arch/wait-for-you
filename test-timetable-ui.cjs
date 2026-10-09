@@ -86,7 +86,7 @@ async function run(){
   assert.equal(ui.handleBack(),true);render();assert(host.querySelector('[aria-label="线上与未排定课程"]'));
   saved=sample;route='timetable';ui=createTimetableUI({core:{...core,chinaToday:()=>today},native,renderHost:render,navigate:r=>{route=r;render();},toast:()=>{}});await ui.ready;render();
   assert.equal(host.querySelector('[aria-label="线上与未排定课程"]'),null,'do not add an empty online section to fully scheduled timetables');
-  const web=createTimetableUI({core,native:{supported:false},renderHost:()=>{},navigate:()=>{},toast:()=>{}});assert(web.render('timetable').includes('浏览器'));assert(!web.render('timetable').includes('data-timetable-action="import"'));
+  const web=createTimetableUI({core,browser:dom.window,native:{supported:false},renderHost:()=>{},navigate:()=>{},toast:()=>{}});assert(web.render('timetable').includes('浏览器'));assert(web.render('timetable').includes('data-timetable-action="import"'));
   // Exercise the real request-ID client: unrelated replies cannot settle a write.
   const messages=[],browser={StudyTimetableBridge:{postMessage:s=>messages.push(JSON.parse(s))}};
   const bridge=createNativeBridge(browser);let event;bridge.subscribe(e=>event=e);

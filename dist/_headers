@@ -5,3 +5,6 @@
   Cache-Control: public, max-age=3600
 /android-update*
   Cache-Control: no-store
+
+/downloads/android-release.json
+  Cache-Control: no-store

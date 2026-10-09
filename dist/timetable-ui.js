@@ -21,8 +21,8 @@
     }
     return result;
   }
-  function createNativeBridge(browser){
-    const endpoint=browser.StudyTimetableBridge,pending=new Map(),listeners=new Set();let sequence=0;
+  function createNativeBridge(browser,name='StudyTimetableBridge'){
+    const endpoint=browser[name],pending=new Map(),listeners=new Set();let sequence=0;
     const supported=Boolean(endpoint&&typeof endpoint.postMessage==='function');
     if(supported)endpoint.onmessage=event=>{
       let reply;try{reply=JSON.parse(event.data);}catch(_){return;}
@@ -41,9 +41,26 @@
       });
     }};
   }
-  function createTimetableUI({core,native,renderHost,navigate,toast}){
+  function createBrowserBridge(browser){
+    const key='henu-personal-timetable-v1';
+    return {supported:Boolean(browser),async request(action,payload){
+      if(!browser)throw Error('unsupported');
+      if(action==='load'){
+        const text=browser.localStorage.getItem(key);if(text===null)return null;
+        const table=JSON.parse(text);if(!model.validateTimetable(table).ok)throw Error('invalid_saved_timetable');return table;
+      }
+      if(action==='save'){
+        if(!model.validateTimetable(payload).ok)throw Error('invalid_timetable');
+        browser.localStorage.setItem(key,JSON.stringify(payload));return clone(payload);
+      }
+      if(action==='clear'){browser.localStorage.removeItem(key);return null;}
+      throw Error('unsupported');
+    }};
+  }
+  function createTimetableUI({core,native,browser,renderHost,navigate,toast}){
+    const android=native.supported,store=android?native:createBrowserBridge(browser);
     let activeRoute='timetable';
-    const state={table:null,loaded:!native.supported,week:1,current:true,busy:false,error:'',preview:null,previewValues:{},editDraft:null,clearConfirm:false,today:core.chinaToday(),zoom:1,widgetChoice:false,widgetHelp:false};
+    const state={table:null,loaded:!store.supported,week:1,current:true,busy:false,error:'',preview:null,previewValues:{},editDraft:null,clearConfirm:false,today:core.chinaToday(),zoom:1,widgetChoice:false,widgetHelp:false,webText:'',shortcutText:'',guideOpen:false};
     let pinch=null,suppressCourseUntil=0;
     const button=(action,label,extra='',cls='secondary-button')=>`<button type="button" class="${cls}" data-timetable-action="${action}" ${extra}>${label}</button>`;
     const courseButton=(course,body=escape(course.name),cls='timetable-course')=>button('course',body,`data-course="${escape(course.key)}"`,cls);
@@ -56,7 +73,7 @@
       if(table!==null&&!model.validateTimetable(table).ok)throw Error('invalid_saved_timetable');
       state.table=table;if(state.current)setCurrent();
     }
-    const ready=native.supported?native.request('load').then(acceptTable).catch(()=>{state.error='课表暂时无法读取。请退出后重新打开；已有课表没有被删除。';}).finally(()=>{state.loaded=true;repaint();}):Promise.resolve();
+    const ready=store.supported?store.request('load').then(acceptTable).catch(()=>{state.error='课表暂时无法读取。请退出后重新打开；已有课表没有被删除。';}).finally(()=>{state.loaded=true;repaint();}):Promise.resolve();
     native.subscribe?.(message=>{
       state.busy=false;
       if(message.event==='import-ready'){
@@ -67,7 +84,7 @@
       else if(message.event==='import-cancelled'){state.error='';repaint();toast('已取消导入，已有课表保持原样。');}
     });
     function weekly(){
-      if(!native.supported)return heading('我的课表','Your week, at a glance.')+`<div class="timetable-empty"><img src="assets/ink-dog-time.png" alt="" width="160" height="160"><h2>在安卓新版中查看个人课表</h2><p>当前浏览器支持自习查询。自动导入需要包含个人课表功能的安卓新版，由你在学校原网页登录后读取。</p><p>个人课表保存在手机里。网页版暂不接入学校登录。</p></div>`;
+      if(!android&&!state.table&&store.supported)return heading('我的课表','Your week, at a glance.')+error()+`<div class="timetable-empty"><img src="assets/ink-dog-time.png" alt="" width="160" height="160"><h2>把课表带到这里</h2><p>iPhone 可在 Safari 教务页通过快捷指令读取整学期课表，再回到这里确认保存，不用逐门填写。</p>${button('import','导入我的课表','','primary-button')}<p class="helper">课表只保存在当前浏览器里。请保持同一浏览器／桌面网页入口，清除网站数据会删除课表。</p></div>`;
       if(!state.loaded)return heading('我的课表','正在读取手机里的课表…')+error();
       if(!state.table)return heading('我的课表','把这一周，轻轻展开。')+error()+`<div class="timetable-empty"><img src="assets/ink-dog-time.png" alt="" width="160" height="160"><h2>先把你的课表带过来</h2><p>在学校原网页完成登录，我们读取本学期课表。确认后保存在这台手机上。</p>${button('import','从教务系统导入',state.busy?'disabled':'','primary-button')}<p class="helper">不把账号密码或个人课表上传给开发者。</p></div>`;
       const table=state.table,entries=model.coursesForWeek(table,state.week),actual=currentWeek();
@@ -86,7 +103,7 @@
         return courseButton(c,`<b>${escape(c.name)}</b><span>${c.unscheduled?'未排定时间':'部分安排待核对'}</span><span>${escape(summary)}</span>`);
       }).join('')}</div></section>`:'';
       const others=table.courses.filter(c=>c.localOnly&&!c.unscheduled&&!c.pendingSchedules.length).map(c=>model.effectiveCourse(table,c));
-      const widgetControls=`<div class="timetable-widget-controls">${button('widget-choice','添加桌面组件',`aria-expanded="${state.widgetChoice}" ${state.busy?'disabled':''}`)}${state.widgetChoice?`<section aria-label="选择桌面组件"><p>留在桌面，抬眼就能看见。</p><div class="timetable-actions">${button('pin-today','今日课程',state.busy?'disabled':'')}${button('pin-week','本周课表',state.busy?'disabled':'')}</div><p class="helper">今日看下一节课，本周看七天安排。添加后可长按组件调整大小。</p></section>`:''}${state.widgetHelp?'<p role="status" class="helper">也可以长按桌面空白处 → 添加小部件 → 等你下课，选择“今日课程”或“本周课表”。</p>':''}</div>`;
+      const widgetControls=android?`<div class="timetable-widget-controls">${button('widget-choice','添加桌面组件',`aria-expanded="${state.widgetChoice}" ${state.busy?'disabled':''}`)}${state.widgetChoice?`<section aria-label="选择桌面组件"><p>留在桌面，抬眼就能看见。</p><div class="timetable-actions">${button('pin-today','今日课程',state.busy?'disabled':'')}${button('pin-week','本周课表',state.busy?'disabled':'')}</div><p class="helper">今日看下一节课，本周看七天安排。添加后可长按组件调整大小。</p></section>`:''}${state.widgetHelp?'<p role="status" class="helper">也可以长按桌面空白处 → 添加小部件 → 等你下课，选择“今日课程”或“本周课表”。</p>':''}</div>`:'';
       return `<div class="timetable-week-heading"><h1 tabindex="-1">我的课表</h1><div class="timetable-toolbar">${button('previous-week','←',`aria-label="上一周" ${state.week<=1||state.busy?'disabled':''}`)}<strong>第 ${state.week} 周</strong>${button('next-week','→',`aria-label="下一周" ${state.week>=table.maxWeek||state.busy?'disabled':''}`)}${button('current-week','本周',state.busy?'disabled':'')}</div></div>`+error()+`<p class="timetable-date-notice">${notice}</p>${grid}${unplacedSection}${widgetControls}${entries.length?'':'<p class="timetable-no-course">这一周没有已排课的课程。</p>'}${others.length?`<details class="timetable-other"><summary>本地保留的课程（${others.length}）</summary><div class="timetable-other-list">${others.map(c=>courseButton(c)).join('')}</div></details>`:''}<div class="timetable-actions">${button('import','重新同步',state.busy?'disabled':'')}${button('clear','删除个人课表',state.busy?'disabled':'')}</div><p class="helper">学校记录更新后，请主动同步。个人课表独立于右上角的自习校区。</p>${state.clearConfirm?`<section class="timetable-confirm" role="region" aria-label="确认删除个人课表"><p>删除这台手机的个人课表和本地修改？教室收藏会保留。</p>${button('confirm-clear','确认删除',state.busy?'disabled':'')}${button('cancel-clear','取消',state.busy?'disabled':'')}</section>`:''}`;
     }
     function detail(route){
@@ -105,9 +122,12 @@
       const schoolSummary=c=>c.newCourse?`<p class="helper">学校最新记录：${escape(c.newCourse.name)}</p>${c.newCourse.meetings.map(m=>`<p class="helper">周${days[m.day-1]} · ${m.startPeriod}–${m.endPeriod} 节 · 第 ${m.weeks.join(',')} 周 · ${escape(m.location||'地点待补充')}</p>`).join('')}`:'<p class="helper">学校最新记录：这门课程已移除。</p>';
       return heading('确认导入','先看一眼，再把课表留在手机里。')+error()+`<form class="timetable-preview"><p><b>2026—2027 第一学期</b></p><p>${counts.courses} 门课程 · ${counts.meetings} 条安排 · ${counts.missingLocation} 条地点待补充</p><details><summary>查看课程名称</summary><ul>${timetable.courses.map(c=>`<li>${escape(c.name)}</li>`).join('')}</ul></details>${state.table?`<label class="field">这次导入<select name="import-mode"><option value="sync">同步当前课表，保护本地修改</option><option value="replace">替换为另一份课表，清除原修改</option></select></label><p class="helper">如果登录了另一个账号，请选择“替换为另一份课表”。</p>`:''}${issues.length?`<label class="timetable-ack"><input type="checkbox" name="ack-issues">有 ${issues.length} 条安排未识别。我知道它们不会出现在周课表里，可在课程详情查看原文字。</label>`:''}${prepared?.conflicts.length?`<div class="timetable-conflicts"><h2>需要你选择的变化</h2><p>同步时逐项选择；替换另一份课表会清除旧修改。</p>${prepared.conflicts.map(c=>`<fieldset><legend>${escape(c.courseName)}</legend><p>${{fields:'学校记录与本地修改都发生了变化。',removed:'学校新课表里没有这门课。',arrangements:'学校改变或拆分了安排，无法可靠对应原修改。'}[c.kind]}</p>${schoolSummary(c)}${c.overrides.map(o=>`<p class="helper">我的修改：${escape(Object.entries(o.patch).map(([k,v])=>({name:'名称',location:'地点',note:'备注',day:'星期',weeks:'教学周',startPeriod:'开始节次',endPeriod:'结束节次'}[k])+': '+String(v)).join('；'))}</p>`).join('')}<label><input type="radio" name="${c.id}" value="keep">${c.kind==='fields'?'保留我的修改':'保留我的原安排与修改'}</label><label><input type="radio" name="${c.id}" value="school">采用学校记录</label></fieldset>`).join('')}</div>`:''}<div class="timetable-actions">${button('save-preview','确认保存',state.busy?'disabled':'','primary-button')}${button('cancel-preview','取消',state.busy?'disabled':'')}</div></form>`;
     }
+    function webImport(){
+      return heading('导入我的课表','在手机上，把这一学期带过来。')+error()+`<div class="timetable-actions">${button('back','返回课表')}<a class="secondary-button" href="https://xk.henu.edu.cn/cas/login.action" target="_blank" rel="noopener noreferrer">打开河南大学教务</a></div><ol class="web-import-steps"><li>Safari 登录教务，进入“教学安排 → 个人课表”，切换“列表”，等待全部页面显示。</li><li>共享 → 运行“导入到等你下课”快捷指令，它会复制课表内容。</li><li>回到这里粘贴，查看预览后确认保存。</li></ol><details class="web-shortcut-guide" ${state.guideOpen?'open':''}><summary>首次使用：配置 Safari 快捷指令</summary><p>只需设置一次；当前提供配置说明，还没有可一键安装的签名快捷指令。</p><ol><li>打开苹果“快捷指令”，新建快捷指令，命名“导入到等你下课”。在详情打开“在共享表单中显示”，输入类型选择“Safari 网页”。</li><li>添加“在网页上运行 JavaScript”，网页参数选“快捷指令输入”。点下面按钮复制脚本，将原示例脚本全部替换为它。</li><li>接着添加“拷贝到剪贴板”，内容使用上一步结果。保存后，在 Safari 教务课表页的共享菜单运行它。</li></ol>${button('copy-shortcut','复制读取脚本',state.busy?'disabled':'')}${state.shortcutText?`<label class="field">也可以长按脚本，全选并复制<textarea readonly rows="4">${escape(state.shortcutText)}</textarea></label>`:''}<p class="helper">首次运行时，iPhone 可能要求允许网页脚本。脚本仅提取完整课表，不读取密码或 Cookie，不联网发送课程。<a href="https://support.apple.com/zh-cn/guide/shortcuts/apdb71a01d93/ios" target="_blank" rel="noopener noreferrer">苹果操作说明</a></p></details><label class="field">课表内容<textarea data-web-import rows="6" placeholder="在这里长按，粘贴快捷指令复制的课表" spellcheck="false">${escape(state.webText)}</textarea></label><div class="timetable-actions">${button('paste-web','读取已复制课表',state.busy?'disabled':'')}${button('read-web','生成课表预览',state.busy?'disabled':'','primary-button')}</div><details><summary>也可以选择课表 JSON 文件</summary><label class="field">课表文件<input type="file" data-web-file accept=".json,application/json"></label><p class="helper">选择后点“生成课表预览”。支持本应用读取脚本生成的文件，不支持任意 Excel 或截图。</p></details><p class="helper">确认前不会替换现有课表；内容在当前浏览器处理，不上传给开发者。</p>`;
+    }
     function render(route){
       activeRoute=route;
-      let markup=route==='timetable/import-preview'?preview():route.startsWith('timetable/course/')?detail(route):weekly();
+      let markup=route==='timetable/import-web'&&!android?webImport():route==='timetable/import-preview'?preview():route.startsWith('timetable/course/')?detail(route):weekly();
       if(route==='timetable/import-preview'){
         if(state.previewValues['import-mode']==='replace')markup=markup.replace('<option value="replace">','<option value="replace" selected>');
         if(state.previewValues['ack-issues'])markup=markup.replace('name="ack-issues">','name="ack-issues" checked>');
@@ -122,13 +142,32 @@
     }
     async function save(table){
       state.busy=true;state.error='';repaint();
-      try{const result=await native.request('save',table);acceptTable(result);return true;}
+      try{const result=await store.request('save',table);acceptTable(result);return true;}
       catch(_){state.error='未保存：手机存储暂时不可用。之前的课表保持原样，请重试。';return false;}
       finally{state.busy=false;repaint();}
     }
     async function perform(action,target){
       if(state.busy)return;
       state.error='';
+      if(!android&&action==='paste-web'){
+        try{state.webText=await browser.navigator.clipboard.readText();repaint();}
+        catch(_){state.error='请在课表内容框里长按，选择“粘贴”，然后生成预览。';repaint();}return;
+      }
+      if(!android&&action==='copy-shortcut'){
+        state.guideOpen=true;state.busy=true;repaint();
+        try{
+          const response=await browser.fetch('./ios-safari-import.js',{cache:'no-store'});if(!response.ok)throw Error('script_unavailable');
+          state.shortcutText=await response.text();
+          try{await browser.navigator.clipboard.writeText(state.shortcutText);toast('脚本已复制，请粘贴到快捷指令的网页脚本操作。');}
+          catch(_){toast('请长按下方脚本，全选并复制。');}
+        }catch(_){state.error='读取脚本暂时无法加载，请联网后再试。';}
+        finally{state.busy=false;repaint();}return;
+      }
+      if(!android&&action==='read-web'){
+        let result;try{if(new TextEncoder().encode(state.webText).length>524288)throw Error('too_large');result=model.normalizeImport(JSON.parse(state.webText));}catch(_){result=null;}
+        if(!result?.ok){state.error='没有识别到完整的本学期课表。请在学校个人课表“列表”页重新运行快捷指令；已有课表保持原样。';repaint();return;}
+        state.preview=result;state.previewValues={};navigate('timetable/import-preview');return;
+      }
       if(action==='course'){if(Date.now()>=suppressCourseUntil)navigate('timetable/course/'+encodeURIComponent(target.dataset.course));return;}
       if(action.startsWith('zoom-')){setZoom(action==='zoom-fit'?1:state.zoom+(action==='zoom-in'?.2:-.2),target.ownerDocument);return;}
       if(action==='widget-choice'){state.widgetChoice=!state.widgetChoice;repaint();return;}
@@ -143,11 +182,12 @@
       if(action==='current-week'){setCurrent();repaint();return;}
       if(action==='clear'||action==='cancel-clear'){state.clearConfirm=action==='clear';repaint();return;}
       if(action==='import'){
+        if(!android){navigate('timetable/import-web');return;}
         state.busy=true;repaint();
         try{await native.request('import');}catch(_){state.busy=false;state.error='无法打开学校登录页，请检查 Android System WebView 或稍后重试。';repaint();}return;
       }
       if(action==='confirm-clear'){
-        state.busy=true;repaint();try{await native.request('clear');state.table=null;state.clearConfirm=false;state.preview=null;toast('个人课表已删除。');}
+        state.busy=true;repaint();try{await store.request('clear');state.table=null;state.clearConfirm=false;state.preview=null;toast('个人课表已删除。');}
         catch(_){state.error='删除失败，已有课表保持原样。';}finally{state.busy=false;repaint();}return;
       }
       if(action==='restore'){
@@ -166,6 +206,12 @@
     }
     function handleAction(target){if(!target.dataset.timetableAction)return false;void perform(target.dataset.timetableAction,target).catch(()=>{state.busy=false;state.error='操作未完成，请重试。';repaint();});return true;}
     function handleInput(target){
+      if(target.hasAttribute('data-web-import')){state.webText=target.value;return true;}
+      if(target.hasAttribute('data-web-file')){
+        const file=target.files?.[0];if(!file)return true;
+        if(file.size>524288){state.error='课表文件太大，请选择完整的课表 JSON 文件。';repaint();return true;}
+        void file.text().then(text=>{state.webText=text;repaint();}).catch(()=>{state.error='文件没有读完，请重新选择。';repaint();});return true;
+      }
       const form=target.closest('form');if(!form)return false;
       const values=()=>Object.fromEntries(new form.ownerDocument.defaultView.FormData(form));
       if(form.classList.contains('timetable-preview')){state.previewValues=values();return true;}
@@ -217,5 +263,5 @@
     function refreshToday(){const today=core.chinaToday();if(today!==state.today){state.today=today;if(state.current)setCurrent();repaint();}}
     return {ready,render,handleAction,handleInput,handleSubmit,handleBack,refreshToday,handleTouch};
   }
-  return {createTimetableUI,createNativeBridge};
+  return {createTimetableUI,createNativeBridge,createBrowserBridge};
 });

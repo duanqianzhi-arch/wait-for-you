@@ -10,7 +10,7 @@ for(const file of ['data.js','core.js','flow.js','assets/rough.js','app.js'])w.e
 try{
  const link=[...w.document.querySelectorAll('a')].find(x=>x.textContent.includes('下载安卓'));
  assert(link,'website must offer an Android APK download');
- assert.equal(link.getAttribute('href'),'./downloads/dengni-xiake-v1.2.4.apk');
+ assert.equal(link.getAttribute('href'),'./downloads/dengni-xiake-v1.2.5.apk');
  assert.match(link.textContent,/测试版/,'native runtime still needs phone testing');
  w.document.querySelector('[data-action="install"]').click();
  const guide=w.document.getElementById('info-dialog').textContent;
