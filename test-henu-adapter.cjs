@@ -27,6 +27,36 @@ assert.equal(adapter.extract(doc(html().replace('共 1 页','共 2 页'))).error
 const pagedFailure=adapter.extract(doc(html().replace('共 1 页','共 2 页')));
 assert.deepEqual(pagedFailure.diagnostics,{check:'page_count',pageCount:2,declaredCourseCount:1},'a rejected paginated report must explain its completeness check without returning private rows');
 assert.equal(pagedFailure.rows,undefined);
+// The school prints all report pages in one document, with repeated table headers.
+const nineCourses=Array.from({length:9},(_,i)=>values.map((value,index)=>
+ index===0?'P-'+(i+1):index===2?'['+(200+i)+']匿名分页课程'+(i+1):
+ index===7?'已选中':index===10?(i>=7?'4-18周':'1-18周 二[1-2] 示例室'):value));
+function printedPage(number,records,{total=2,count=9,reverse=false}={}){
+ const h=reverse?[...headers].reverse():headers;
+ return `<section><h1>河南大学学生个人课表</h1><p>2026-2027学年第一学期 课程门数：${count}</p><table><tbody><tr>${h.map(value=>`<td>${value}</td>`).join('')}</tr>${records.map(record=>`<tr>${(reverse?[...record].reverse():record).map(value=>`<td>${value}</td>`).join('')}<td hidden>不应采集</td></tr>`).join('')}</tbody></table><p>第 ${number} 页 共 ${total} 页</p></section>`;
+}
+const twoPages=printedPage(1,nineCourses.slice(0,8))+printedPage(2,nineCourses.slice(8),{reverse:true});
+const wholeReport=adapter.extract(doc(twoPages));
+assert.equal(wholeReport.complete,true,'all printed pages in the same document must import together');
+assert.equal(wholeReport.rows.length,9);
+assert.deepEqual(wholeReport.rows.map(row=>row.teachingGroupCode),nineCourses.map(row=>row[0]),'use the headers of each page, without duplicating or losing the last course');
+assert.equal(JSON.stringify(wholeReport).includes('不应采集'),false);
+const mergedTable=require('./dist/personal-timetable.js').normalizeImport(wholeReport,'2026-10-09T00:00:00.000Z');
+assert.equal(mergedTable.ok,true);
+assert.equal(mergedTable.timetable.courses.filter(course=>course.unscheduled).length,2);
+const continuous=doc(printedPage(1,nineCourses.slice(0,8))+printedPage(2,nineCourses.slice(8)));
+const printedTables=continuous.querySelectorAll('table');
+for(const row of Array.from(printedTables[1].rows))printedTables[0].tBodies[0].append(row.cloneNode(true));
+printedTables[1].remove();
+assert.equal(adapter.extract(continuous).rows?.length,9,'a continuous table with repeated page headers must also import once');
+assert.equal(adapter.extract(doc(printedPage(1,nineCourses))).errorCode,'incomplete_table','matching course count alone cannot prove that all report pages were loaded');
+assert.equal(adapter.extract(doc(printedPage(1,nineCourses.slice(0,8))+printedPage(2,[]))).diagnostics.check,'course_count','all page footers alone cannot hide a missing course');
+assert.equal(adapter.extract(doc(printedPage(1,nineCourses.slice(0,8))+printedPage(1,nineCourses.slice(8)))).diagnostics.check,'page_count','duplicate page numbers must be rejected');
+assert.equal(adapter.extract(doc(printedPage(1,nineCourses.slice(0,8))+printedPage(2,nineCourses.slice(8),{total:3}))).diagnostics.check,'page_count','page totals must agree');
+assert.equal(adapter.extract(doc(printedPage(1,nineCourses.slice(0,8))+printedPage(2,nineCourses.slice(8),{count:8}))).errorCode,'incomplete_table','repeated course totals must agree');
+assert.equal(adapter.extract(doc(printedPage(1,nineCourses.slice(0,8))+printedPage(2,nineCourses.slice(8)).replace('2026-2027','2025-2026'))).errorCode,'unsupported_semester','do not merge a report page from another semester');
+const invalidLastCourse=[...nineCourses[8]];invalidLastCourse[7]='预选';
+assert.equal(adapter.extract(doc(printedPage(1,nineCourses.slice(0,8))+printedPage(2,[invalidLastCourse]))).errorCode,'unsupported_selection_status','later pages must pass the same field checks');
 assert.equal(adapter.extract(doc(html(headers,values,2))).errorCode,'incomplete_table');
 const countFailure=adapter.extract(doc(html(headers,values,2)));
 assert.deepEqual(countFailure.diagnostics,{check:'course_count',declaredCourseCount:2,readCourseCount:1});

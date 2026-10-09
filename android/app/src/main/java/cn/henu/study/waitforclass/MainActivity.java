@@ -97,7 +97,7 @@ public class MainActivity extends Activity {
     }
     @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);if(webView!=null)webView.loadUrl(widgetRoute(this,intent));}
     private boolean openUpdatePage(String url){
-        if(!"https://henu-study.pages.dev/android-update.html?versionCode=8".equals(url))return false;
+        if(!"https://henu-study.pages.dev/android-update.html?versionCode=9".equals(url))return false;
         try { startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(url))); }
         catch(ActivityNotFoundException unavailable){Toast.makeText(this,"请用浏览器打开 henu-study.pages.dev 查看新版本。",Toast.LENGTH_LONG).show();}
         return true;

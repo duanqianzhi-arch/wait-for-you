@@ -39,7 +39,7 @@ public class OfflineAppTest {
             waitFor(scenario,"Array.from(document.images).every(i=>i.complete&&i.naturalWidth>0)");
             js(scenario,"location.hash='settings'");
             waitFor(scenario,"!!document.querySelector('[data-page=settings]')");
-            assertEquals("true",js(scenario,"document.body.innerText.includes('安卓版本 1.2.2')&&!document.body.innerText.includes('离线课表')&&document.body.innerText.includes('检查更新')"));
+            assertEquals("true",js(scenario,"document.body.innerText.includes('安卓版本 1.2.3')&&!document.body.innerText.includes('离线课表')&&document.body.innerText.includes('检查更新')"));
             assertEquals("true",js(scenario,"!document.querySelector('[data-action=install]')"));
             assertEquals("true",js(scenario,"!navigator.serviceWorker.controller"));
         }
