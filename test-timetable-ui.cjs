@@ -64,6 +64,28 @@ async function run(){
   const start=touch('touchstart',[20,120]);assert.equal(ui.handleTouch(start),true);assert(start.prevented);
   ui.handleTouch(touch('touchmove',[20,220]));assert.equal(host.querySelector('.weekly-timetable').style.getPropertyValue('--timetable-zoom'),'2');
   ui.handleTouch(touch('touchend',[]));await click('course');assert.equal(route,'timetable','pinch must not click a class on release');
+  // Week-only records stay visible below the grid, without pretending they have fixed periods.
+  const withOnline=model.normalizeImport({...raw,declaredCourseCount:3,rows:[
+    raw.rows[0],
+    {...raw.rows[0],courseText:'[401]示例线上课甲',teachingGroupCode:'online-a',scheduleText:'4-18周'},
+    {...raw.rows[0],courseText:'[402]示例线上课乙',teachingGroupCode:'online-b',scheduleText:''}
+  ]}).timetable;
+  saved=model.applyEdit(withOnline,withOnline.courses[1].key,null,{name:'我修改的线上课名'});
+  route='timetable';ui=createTimetableUI({core:{...core,chinaToday:()=>today},native,renderHost:render,navigate:r=>{route=r;render();},toast:()=>{}});await ui.ready;render();
+  const unplaced=host.querySelector('[aria-label="线上与未排定课程"]');
+  assert(unplaced,'week-only courses must have their own visible section');
+  assert.equal(unplaced.closest('details'),null,'these courses must not be hidden in a collapsed disclosure');
+  assert.equal(host.querySelector('.timetable-scroll').nextElementSibling,unplaced,'place the records directly below the weekly grid');
+  assert.equal(unplaced.querySelectorAll('[data-timetable-action="course"]').length,2);
+  assert.equal(host.querySelectorAll('.weekly-timetable [data-timetable-action="course"]').length,1,'do not invent a grid slot for either online course');
+  assert(unplaced.textContent.includes('我修改的线上课名')&&unplaced.textContent.includes('4-18周'));
+  assert(unplaced.textContent.includes('未排定时间'),'missing time must stay explicit rather than becoming a timetable conflict');
+  assert(!unplaced.textContent.includes('示例课程1'));
+  ui.handleAction(unplaced.querySelector('[data-timetable-action="course"]'));await tick();
+  assert(route.startsWith('timetable/course/'));assert(host.querySelector('form'));
+  assert.equal(ui.handleBack(),true);render();assert(host.querySelector('[aria-label="线上与未排定课程"]'));
+  saved=sample;route='timetable';ui=createTimetableUI({core:{...core,chinaToday:()=>today},native,renderHost:render,navigate:r=>{route=r;render();},toast:()=>{}});await ui.ready;render();
+  assert.equal(host.querySelector('[aria-label="线上与未排定课程"]'),null,'do not add an empty online section to fully scheduled timetables');
   const web=createTimetableUI({core,native:{supported:false},renderHost:()=>{},navigate:()=>{},toast:()=>{}});assert(web.render('timetable').includes('浏览器'));assert(!web.render('timetable').includes('data-timetable-action="import"'));
   // Exercise the real request-ID client: unrelated replies cannot settle a write.
   const messages=[],browser={StudyTimetableBridge:{postMessage:s=>messages.push(JSON.parse(s))}};
