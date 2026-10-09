@@ -35,6 +35,71 @@ public class WidgetGeometryTest {
         int lines=text.getLayout().getLineCount();assertTrue(lines>0);
         assertTrue("visible text lines must fit the course cell",text.getLayout().getLineBottom(lines-1)<=text.getHeight()-text.getPaddingTop()-text.getPaddingBottom());
     }
+    private View hostedWeek(android.os.Bundle options,int width,int height)throws Exception {
+        return hosted(options,width,height,single(),true);
+    }
+    private View hosted(android.os.Bundle options,int width,int height,JSONObject table,boolean weekly)throws Exception {
+        ZonedDateTime now=ZonedDateTime.of(2026,10,8,7,0,0,0,ZoneId.of("Asia/Shanghai"));
+        new TimetableStore(context).save(table);
+        android.appwidget.AppWidgetManager manager=android.appwidget.AppWidgetManager.getInstance(context);
+        org.robolectric.shadows.ShadowAppWidgetManager shadow=Shadows.shadowOf(manager);
+        int id=shadow.createWidget(weekly?WeekWidgetProvider.class:TodayWidgetProvider.class,weekly?R.layout.widget_week:R.layout.widget_today);
+        manager.updateAppWidgetOptions(id,options);TimetableWidgets.update(context,manager,id,weekly,now);
+        View host=shadow.getViewFor(id);
+        host.measure(View.MeasureSpec.makeMeasureSpec(width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(height,View.MeasureSpec.EXACTLY));host.layout(0,0,width,height);
+        return host;
+    }
+    private android.os.Bundle ranges(){
+        android.os.Bundle options=new android.os.Bundle();
+        options.putInt(android.appwidget.AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH,340);
+        options.putInt(android.appwidget.AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH,700);
+        options.putInt(android.appwidget.AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT,320);
+        options.putInt(android.appwidget.AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT,620);
+        return options;
+    }
+    private void gridFills(View host){
+        ViewGroup periods=host.findViewById(R.id.widget_periods);assertEquals(13,periods.getChildCount());
+        int bottom=periods.getChildAt(12).getBottom();
+        assertTrue("the grid must fill the tall host instead of using the landscape minimum",bottom>=periods.getHeight()*0.9);
+        assertTrue("all thirteen periods must fit inside the host",bottom<=periods.getHeight());
+    }
+    @Test @Config(qualifiers="port-mdpi") public void portraitHostUsesTallRangeInsteadOfMinimumHeight()throws Exception {
+        gridFills(hostedWeek(ranges(),340,620));
+    }
+    @Test @Config(qualifiers="land-mdpi") public void landscapeHostFitsItsShortWideRange()throws Exception {
+        gridFills(hostedWeek(ranges(),700,320));
+    }
+    @Test @Config(sdk=35,qualifiers="port-mdpi") public void modernHostExactSizeOverridesCoarseBounds()throws Exception {
+        android.os.Bundle options=ranges();options.putInt(android.appwidget.AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT,320);
+        java.util.ArrayList<android.util.SizeF> sizes=new java.util.ArrayList<>();sizes.add(new android.util.SizeF(340,620));
+        options.putParcelableArrayList(android.appwidget.AppWidgetManager.OPTION_APPWIDGET_SIZES,sizes);
+        gridFills(hostedWeek(options,340,620));
+    }
+    private JSONObject fourDailyCourses()throws Exception {
+        JSONObject table=single(),original=table.getJSONArray("courses").getJSONObject(0);JSONArray courses=new JSONArray();
+        int[] starts={1,3,9,11},ends={2,4,10,13};
+        for(int i=0;i<4;i++){
+            JSONObject course=new JSONObject(original.toString()).put("key","daily-"+i).put("name",new String[]{"Morning A","Morning B","Afternoon example","Evening example"}[i]);
+            course.getJSONArray("meetings").getJSONObject(0).put("startPeriod",starts[i]).put("endPeriod",ends[i]);courses.put(course);
+        }
+        courses.getJSONObject(0).getJSONArray("pendingSchedules").put("4-18周");return table.put("courses",courses);
+    }
+    private void allDailyCoursesFit(View host){
+        ViewGroup cards=host.findViewById(R.id.widget_courses);assertEquals("a tall host must show afternoon and evening too",4,cards.getChildCount());
+        assertTrue(((TextView)cards.getChildAt(2).findViewById(R.id.widget_course_text)).getText().toString().contains("Afternoon"));
+        assertTrue(((TextView)cards.getChildAt(3).findViewById(R.id.widget_course_text)).getText().toString().contains("Evening"));
+        assertTrue(cards.getChildAt(3).getBottom()<=cards.getHeight());
+        String footer=((TextView)host.findViewById(R.id.widget_footer)).getText().toString();assertTrue(footer.contains("核对"));assertFalse(footer.contains("还有"));
+    }
+    @Test @Config(qualifiers="port-mdpi") public void tallDailyHostDoesNotHideAfternoonAndEvening()throws Exception {
+        android.os.Bundle options=ranges();options.putInt(android.appwidget.AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT,190);options.putInt(android.appwidget.AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT,380);
+        allDailyCoursesFit(hosted(options,340,380,fourDailyCourses(),false));
+    }
+    @Test @Config(sdk=35,qualifiers="port-mdpi") public void exactDailySizeDoesNotHideAfternoonAndEvening()throws Exception {
+        android.os.Bundle options=ranges();options.putInt(android.appwidget.AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT,190);options.putInt(android.appwidget.AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT,190);
+        java.util.ArrayList<android.util.SizeF> sizes=new java.util.ArrayList<>();sizes.add(new android.util.SizeF(340,380));options.putParcelableArrayList(android.appwidget.AppWidgetManager.OPTION_APPWIDGET_SIZES,sizes);
+        allDailyCoursesFit(hosted(options,340,380,fourDailyCourses(),false));
+    }
     @Test public void minimumWeekKeepsSinglePeriodAndConflictReadable()throws Exception {
         for(int width:new int[]{250,440})for(boolean conflict:new boolean[]{false,true}){
             JSONObject t=single();if(conflict){JSONObject other=new JSONObject(t.getJSONArray("courses").getJSONObject(0).toString());other.put("key","other").put("name","Conflict");t.getJSONArray("courses").put(other);}

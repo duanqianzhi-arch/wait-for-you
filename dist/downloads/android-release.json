@@ -1,11 +1,11 @@
 {
-  "version": "1.2.3",
-  "versionCode": 9,
+  "version": "1.2.4",
+  "versionCode": 10,
   "applicationId": "cn.henu.study.waitforclass",
   "minAndroid": "8.0",
   "minWebView": 102,
-  "size": 7307352,
-  "sha256": "4f68f957887ac6d41fc6b020c73a30dcf2cfcafbb0f018c38246de5d5eae385d",
+  "size": 7307696,
+  "sha256": "979923b8c9902577810e6ee16500524f4ce5fccd5a208aa3963d07c6f4278ce3",
   "certificateSha256": "b75e65f5f1a72f333b206189c449ac8d2a1a1405235f48babfbe6ff67e45c1c1",
   "signatureVerified": true,
   "permissions": [
@@ -13,7 +13,7 @@
   ],
   "bundledFiles": 22,
   "runtimeStatus": "phone-testing-pending",
-  "file": "dengni-xiake-v1.2.3.apk",
+  "file": "dengni-xiake-v1.2.4.apk",
   "releaseDate": "2026-10-09",
-  "label": "Android1.2.3 merges fully loaded printed timetable pages with page/semester/course completeness checks; phone verification pending"
+  "label": "Android1.2.4 fits widget grid to launcher exact sizes and portrait/landscape ranges; Honor widget verification pending"
 }

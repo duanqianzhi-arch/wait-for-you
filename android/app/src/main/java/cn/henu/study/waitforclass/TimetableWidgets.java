@@ -4,6 +4,8 @@ import android.app.*;
 import android.appwidget.*;
 import android.content.*;
 import android.os.Bundle;
+import android.os.Build;
+import android.util.SizeF;
 import android.util.TypedValue;
 import android.view.View;
 import android.widget.RemoteViews;
@@ -35,15 +37,50 @@ final class TimetableWidgets {
         }catch(RuntimeException unavailable){/* Launcher availability must not make a saved timetable look unsaved. */}
     }
     static void update(Context context,AppWidgetManager manager,int id,boolean weekly){
+        update(context,manager,id,weekly,ZonedDateTime.now(ZONE));
+    }
+    static void update(Context context,AppWidgetManager manager,int id,boolean weekly,ZonedDateTime now){
         int[] owned=manager.getAppWidgetIds(new ComponentName(context,provider(weekly)));boolean known=false;for(int own:owned)known|=own==id;if(!known)return;
-        ZonedDateTime now=ZonedDateTime.now(ZONE);Bundle options=manager.getAppWidgetOptions(id);
-        int width=options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH,340),height=options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT,weekly?360:160);
+        Bundle options=manager.getAppWidgetOptions(id);
         RemoteViews views;
-        try{views=build(context,new TimetableStore(context).load(),now.toLocalDate(),now.toLocalTime(),width,height,weekly);}
-        catch(Exception invalid){views=base(context,now.toLocalDate(),now.toLocalTime(),weekly);message(views,"请打开 App 检查课表");}
+        try{views=sized(context,new TimetableStore(context).load(),now,options,weekly,id);}
+        catch(Exception invalid){views=base(context,now.toLocalDate(),now.toLocalTime(),weekly);message(views,"请打开 App 检查课表");refreshButton(context,views,id,weekly);}
+        try{manager.updateAppWidget(id,views);}catch(RuntimeException unavailable){/* A deleted widget or unavailable launcher does not change private data. */}
+    }
+    private static void refreshButton(Context context,RemoteViews views,int id,boolean weekly){
         Intent refresh=new Intent(context,provider(weekly)).setAction(REFRESH).putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID,id);
         views.setOnClickPendingIntent(R.id.widget_refresh,PendingIntent.getBroadcast(context,id,refresh,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE));
-        try{manager.updateAppWidget(id,views);}catch(RuntimeException unavailable){/* A deleted widget or unavailable launcher does not change private data. */}
+    }
+    private static RemoteViews sized(Context context,JSONObject table,ZonedDateTime now,Bundle options,boolean weekly,int id)throws JSONException {
+        // Modern launchers choose the matching layout, including resize/rotation variants.
+        if(Build.VERSION.SDK_INT>=31){
+            ArrayList<?> sizes;
+            try{sizes=options.getParcelableArrayList(AppWidgetManager.OPTION_APPWIDGET_SIZES);}
+            catch(RuntimeException invalid){sizes=null;}
+            if(sizes!=null&&!sizes.isEmpty()&&sizes.size()<=4){
+                Map<SizeF,RemoteViews> layouts=new LinkedHashMap<>();boolean valid=true;
+                for(Object item:sizes){
+                    if(!(item instanceof SizeF)){valid=false;break;}
+                    SizeF size=(SizeF)item;float width=size.getWidth(),height=size.getHeight();
+                    if(!Float.isFinite(width)||!Float.isFinite(height)||width<=0||height<=0||width>900||height>900){valid=false;break;}
+                    layouts.put(size,sizedView(context,table,now,Math.round(width),Math.round(height),weekly,id));
+                }
+                if(valid&&!layouts.isEmpty())return layouts.size()==1?layouts.values().iterator().next():new RemoteViews(layouts);
+            }
+        }
+        // Legacy ranges describe both orientations: portrait is narrow and tall.
+        int minWidth=options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH,340);
+        int minHeight=options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT,weekly?360:160);
+        int maxWidth=Math.max(minWidth,options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH,minWidth));
+        int maxHeight=Math.max(minHeight,options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT,minHeight));
+        RemoteViews portrait=sizedView(context,table,now,minWidth,maxHeight,weekly,id);
+        if(minWidth==maxWidth&&minHeight==maxHeight)return portrait;
+        RemoteViews landscape=sizedView(context,table,now,maxWidth,minHeight,weekly,id);
+        return new RemoteViews(landscape,portrait);
+    }
+    private static RemoteViews sizedView(Context context,JSONObject table,ZonedDateTime now,int width,int height,boolean weekly,int id)throws JSONException {
+        RemoteViews views=build(context,table,now.toLocalDate(),now.toLocalTime(),width,height,weekly);
+        refreshButton(context,views,id,weekly);return views;
     }
     static RemoteViews build(Context context,JSONObject table,LocalDate date,LocalTime time,int width,int height,boolean weekly)throws JSONException {
         RemoteViews views=base(context,date,time,weekly);
