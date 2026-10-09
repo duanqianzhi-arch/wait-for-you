@@ -1,1 +1,1 @@
-<resources><string name="app_name">等你下课</string></resources>
+<resources><string name="app_name">等你下课</string><string name="widget_today_name">今日课程</string><string name="widget_week_name">本周课表</string><string name="widget_today_description">今天的下一节课与后续安排</string><string name="widget_week_description">七天课程，按实际节数展开</string></resources>

@@ -3,7 +3,7 @@ const {JSDOM} = require('jsdom');
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const dist=path.join(__dirname,'dist');
 async function run(){
-  const html=fs.readFileSync(path.join(dist,'index.html'),'utf8').replace('data-classroom-app>','data-classroom-app data-native-app="1.0.1">');
+  const html=fs.readFileSync(path.join(dist,'index.html'),'utf8').replace('data-classroom-app>','data-classroom-app data-native-app="1.2.6">');
   const dom=new JSDOM(html,{url:'https://appassets.androidplatform.net/assets/www/index.html#settings',runScripts:'outside-only',pretendToBeVisual:true});
   const win=dom.window;
   win.scrollTo=()=>{};win.matchMedia=()=>({matches:true});win.CSS={escape:x=>String(x)};
@@ -15,11 +15,11 @@ async function run(){
   try{
     const text=win.document.getElementById('app-main').textContent;
     assert.equal(registrationCalls,0,'native APK must never register a service worker');
-    assert.match(text,/安卓版本\s*1\.0\.1/);
+    assert.match(text,/安卓版本\s*1\.2\.6/);
     assert(!text.includes('离线课表'),'remove the offline status row');
     const update=win.document.querySelector('a[href*="android-update.html"]');
     assert(update,'installed app must offer a real update check');
-    assert.match(update.href,/versionCode=2/);
+    assert.match(update.href,/versionCode=12/);
     assert.equal(win.document.querySelector('[data-action="install"]'),null,'already installed app must not offer installation again');
     assert(!/导入课表|在线更新|即将上线/.test(text));
     assert.equal(typeof win.ClassroomNative?.handleBack,'function','APK needs a native back handler');
@@ -34,6 +34,7 @@ async function run(){
     dialog.setAttribute('open','');
     assert.equal(win.ClassroomNative.handleBack(),true);
     assert.equal(dialog.open,false);
+    win.location.hash='about';await new Promise(r=>setTimeout(r,20));assert(win.document.getElementById('app-main').textContent.includes('Cherish'),'developer credits must appear in packaged app');
     console.log('PASS: native settings, bundled offline mode, no redundant installation/unfinished controls');
   }finally{win.close();}
 }

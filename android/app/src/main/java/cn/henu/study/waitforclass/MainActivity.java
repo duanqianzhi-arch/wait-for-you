@@ -28,6 +28,8 @@ public class MainActivity extends Activity {
     private WebView webView;
     private FrameLayout root;
     private boolean handlingBack;
+    private TimetableController timetableController;
+    private AppUpdateController updateController;
 
     @Override public void onCreate(Bundle state){
         super.onCreate(state);
@@ -78,14 +80,33 @@ public class MainActivity extends Activity {
                 if(request.isForMainFrame())runOnUiThread(()->showExplanation("包内页面未能打开，请关闭应用后重试；仍有问题时请重新安装测试包。"));
             }
         });
+        timetableController=new TimetableController(this,webView,new TimetableStore(this));
+        timetableController.attach();
+        updateController=new AppUpdateController(this,webView);updateController.attach();
         root.addView(webView,new FrameLayout.LayoutParams(-1,-1));
-        if(state==null || webView.restoreState(state)==null)webView.loadUrl(START_URL);
+        if(state==null || webView.restoreState(state)==null)webView.loadUrl(widgetRoute(this,getIntent()));
     }
+    static String widgetRoute(android.content.Context context,Intent intent){
+        if(intent==null)return START_URL;
+        String key=intent.getStringExtra("widgetCourse");
+        if(key==null&&!intent.getBooleanExtra("widgetTimetable",false))return START_URL;
+        String timetable=START_URL.substring(0,START_URL.indexOf('#'))+"#timetable";
+        if(key!=null&&key.length()<=400)try{
+            org.json.JSONObject table=new TimetableStore(context).load();
+            if(table!=null){org.json.JSONArray courses=table.getJSONArray("courses");for(int n=0;n<courses.length();n++)if(key.equals(courses.getJSONObject(n).getString("key")))return timetable+"/course/"+java.net.URLEncoder.encode(key,"UTF-8").replace("+","%20");}
+        }catch(Exception unavailable){/* Missing or changed course goes to the timetable. */}
+        return timetable;
+    }
+    @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);if(webView!=null)webView.loadUrl(widgetRoute(this,intent));}
     private boolean openUpdatePage(String url){
-        if(!"https://henu-study.pages.dev/android-update.html?versionCode=2".equals(url))return false;
+        if(!"https://henu-study.pages.dev/android-update.html?versionCode=12".equals(url))return false;
         try { startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(url))); }
         catch(ActivityNotFoundException unavailable){Toast.makeText(this,"请用浏览器打开 henu-study.pages.dev 查看新版本。",Toast.LENGTH_LONG).show();}
         return true;
+    }
+    @Override protected void onActivityResult(int requestCode,int resultCode,Intent data){
+        super.onActivityResult(requestCode,resultCode,data);
+        if(requestCode==TimetableController.IMPORT_REQUEST&&timetableController!=null)timetableController.importResult(resultCode,data);
     }
     private static WebResourceResponse rejected(int status,String reason){
         return new WebResourceResponse("text/plain","UTF-8",status,reason,Collections.emptyMap(),new ByteArrayInputStream(new byte[0]));
@@ -133,8 +154,9 @@ public class MainActivity extends Activity {
         super.onSaveInstanceState(state);
     }
     @Override protected void onPause(){if(webView!=null)webView.onPause();super.onPause();}
-    @Override protected void onResume(){super.onResume();if(webView!=null)webView.onResume();}
+    @Override protected void onResume(){super.onResume();if(webView!=null)webView.onResume();TimetableWidgets.refreshAll(this);}
     @Override protected void onDestroy(){
+        if(updateController!=null)updateController.close();
         if(webView!=null){root.removeView(webView);webView.destroy();webView=null;}
         super.onDestroy();
     }

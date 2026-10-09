@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TextView xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/widget_slot_text" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#171717" android:textSize="9sp" android:gravity="center" android:padding="1dp" android:maxLines="6" android:ellipsize="end" android:includeFontPadding="false" android:background="@drawable/widget_grid_border"/>

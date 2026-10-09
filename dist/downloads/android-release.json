@@ -1,17 +1,20 @@
 {
-  "version": "1.0.1",
-  "versionCode": 2,
+  "version": "1.2.6",
+  "versionCode": 12,
   "applicationId": "cn.henu.study.waitforclass",
   "minAndroid": "8.0",
   "minWebView": 102,
-  "size": 7255813,
-  "sha256": "c9554ebf7c90366e00f5a7ea6f7cebdb0b6d0868ffef9fb6ecb5d948b244345a",
+  "size": 7317451,
+  "sha256": "3021f02ad6345f60c91c03a9dde7b873a36535b5c5f50f49338301985e3a04ef",
   "certificateSha256": "b75e65f5f1a72f333b206189c449ac8d2a1a1405235f48babfbe6ff67e45c1c1",
   "signatureVerified": true,
-  "permissions": [],
-  "bundledFiles": 19,
-  "runtimeStatus": "phone-testing-pending",
-  "file": "dengni-xiake-v1.0.1.apk",
-  "releaseDate": "2026-10-06",
-  "label": "Android 1.0.1 test build; upgrade test pending"
+  "permissions": [
+    "android.permission.INTERNET"
+  ],
+  "bundledFiles": 24,
+  "runtimeStatus": "public-beta",
+  "file": "dengni-xiake-v1.2.6.apk",
+  "releaseDate": "2026-10-09",
+  "label": "Public beta: local Excel timetable import and developer credits",
+  "notes": "网页支持学校导出的Excel课表，保留线上和未排定课程；关于页面新增开发者Cherish。"
 }

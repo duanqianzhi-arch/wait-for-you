@@ -61,6 +61,8 @@
   let toastTimer, route = '', detailOrigin = 'results', offlineStatus = nativeVersion ? '课表随安装包提供 · 可离线查询' : '联网可查；手机离线功能需 HTTPS', dialogReturnFocus;
   const scrollPositions = new Map(), routeStack = [];
   let currentStudyRoute = 'home';
+  let appUpdates=null;
+  const timetableUI=window.TimetableUI?.createTimetableUI({core,browser:window,getRoute:()=>getRoute(),native:window.TimetableUI.createNativeBridge(window),renderHost(){if(routeName()==='timetable')render();},navigate,toast});
   function options(extra={}) {return {...state, favorites:[...favorites], ...extra};}
   function persist() {
     try {localStorage.setItem(storageKey, JSON.stringify({campus:state.campus, mode:state.mode, building:state.building, start:state.start, end:state.end, favorites:[...favorites]}));}
@@ -176,20 +178,25 @@
     return `<section class="page page-narrow" data-page="room">${back(detailOrigin==='settings'?'settings':'results','返回列表')}<div class="detail-hero"><div class="detail-heading"><div><p>${escape(room.campus)} · ${escape(room.building)}</p><h1 tabindex="-1" class="${title.length>12?'long-name':''}">${escape(title)}</h1></div><button type="button" class="detail-favorite" data-favorite="${escape(id)}" aria-pressed="${favorite}">${icon('heart')}${favorite?'已喜欢':'喜欢'}</button></div><div class="detail-metadata"><div><span>所在楼层</span><b>${room.floor} 层</b></div><div><span>教室类型</span><b>${escape(room.type)}</b></div>${room.capacity?`<div><span>座位容量</span><b>${room.capacity} 座</b></div>`:''}</div><div class="floor-visual"><div class="floor-track" aria-label="所在楼层${room.floor}层，按教室编号推算">${buildingFloors.map(f=>`<span class="${f===room.floor?'active':''}">${f}层</span>`).join('')}</div><p>楼层按教室<br>编号推算</p></div></div>${availability}${!result.unknown ? `<section class="schedule-panel"><h2>这间教室的一天</h2><p class="schedule-date">${dateLabel()} · 第 ${info.week} 周${state.scheduleDay&&Number(state.scheduleDay)!==info.day?` · 改按${weekdays[Number(state.scheduleDay)]}课表`:''}</p>${timeline(result.events,start,end)}${scheduleRows(result.events,start,end)}</section>` : ''}<p class="detail-note">课程占用按周次、星期和单双周计算。容量表示座位总数，并非当前空位；开放情况、现场人数及临时活动尚未核验。多媒体教室不保证有可用电脑或插座。<a href="#about">查看数据说明</a></p></section>`;
   }
   function settingsRow(symbol,title,caption,action='',href='') {
-    const attrs=href ? `href="${href}"${href.endsWith('.apk')?' download="等你下课-v1.0.1.apk"':''}` : action ? `type="button" data-action="${action}"` : '', tag=href?'a':action?'button':'div';
+    const attrs=href ? `href="${href}"${href.endsWith('.apk')?' download="等你下课-v1.2.6.apk"':''}` : action ? `type="button" data-action="${action}"` : '', tag=href?'a':action?'button':'div';
     return `<${tag} class="settings-row" ${attrs}><span class="settings-icon">${icon(symbol)}</span><span><b>${title}</b><small>${escape(caption)}</small></span>${action||href?icon('chevron-right'):''}</${tag}>`;
   }
   function settingsPage() {
     const rooms=availableRooms.filter(room=>room.campus===state.campus&&favorites.has(room.id));
+    const updateState=appUpdates?.state.status;
+    const updateCaption=({checking:'正在检查…',available:'有新版本，点此查看。',current:'当前已是最新版，可再次检查。',error:'检查失败，联网后点此重试。'})[updateState]||'打开 App 自动检查；也可以点此检查。';
     return `<section class="page page-narrow" data-page="settings">${heading('设置','喜欢的教室，留给下次自习。')}
       <section class="settings-group favorite-management"><div class="favorite-management-heading"><h2>喜欢的教室 <span>${rooms.length}</span></h2><p>${escape(state.campus)} · 切换右上角校区可管理另一校区的喜欢列表</p></div>
       ${rooms.length?`<div class="favorite-list">${rooms.map(room=>`<div class="favorite-row"><a href="${detailHref(room.id)}" aria-label="查看${escape(room.name)}详情"><b>${escape(room.name)}</b><small>${room.floor} 层${room.capacity?' · '+room.capacity+' 座':''}</small></a><button type="button" class="remove-favorite" data-favorite="${escape(room.id)}" aria-label="取消喜欢${escape(room.name)}">移除</button></div>`).join('')}</div><p class="favorite-explanation">所选时段内无课时，喜欢的教室在同一楼栋组里优先。列表保存在这台设备上。</p>`:`<div class="favorites-empty">${dogArt('settings-dog','favorites')}<p>还没有喜欢的教室。<br>推荐时点一下爱心，就能留在这里。</p></div>`}</section>
-      <section class="settings-group">${nativeVersion ? settingsRow('phone',`安卓版本 ${escape(nativeVersion)}`,'已安装 · 去自习，好吗？')+settingsRow('cloud','检查更新','联网查看新版本。','','https://henu-study.pages.dev/android-update.html?versionCode=2') : settingsRow('phone','下载安卓 App','1.0.1 测试版 · 内置课表','',document.documentElement.hasAttribute('data-preview-only')?'https://henu-study.pages.dev/downloads/dengni-xiake-v1.0.1.apk':'./downloads/dengni-xiake-v1.0.1.apk')+settingsRow('phone','添加到手机桌面','iPhone 或支持的安卓浏览器。','install')}${settingsRow('book','课表与推荐规则',`课表导出于 ${data.sourceExportedAt}`,'','#about')}</section>
+      <section class="settings-group">${nativeVersion ? settingsRow('phone',`安卓版本 ${escape(nativeVersion)}`,'已安装 · 去自习，好吗？')+(appUpdates?.supported?settingsRow('cloud','检查更新',updateCaption,'check-update'):settingsRow('cloud','检查更新','联网查看新版本。','','https://henu-study.pages.dev/android-update.html?versionCode=12')) : settingsRow('phone','下载安卓 App','1.2.6 测试版 · 内置课表','',document.documentElement.hasAttribute('data-preview-only')?'https://henu-study.pages.dev/downloads/dengni-xiake-v1.2.6.apk':'./downloads/dengni-xiake-v1.2.6.apk')+settingsRow('phone','添加到手机桌面','iPhone 或支持的安卓浏览器。','install')}${settingsRow('book','关于等你下课',`课表导出于 ${data.sourceExportedAt}`,'','#about')}</section>
       <details class="settings-group schedule-settings"><summary>学校临时调课</summary><div class="settings-content"><label class="field">按哪一天的课表查询<select id="schedule-day" data-field="scheduleDay"><option value="">随日期自动识别</option>${weekdays.slice(1).map((day,index)=>`<option value="${index+1}" ${state.scheduleDay===String(index+1)?'selected':''}>${day}</option>`).join('')}</select></label><p class="helper">仅在学校通知调课时调整，教学周仍按日期计算。</p></div></details>
       <p class="settings-footer">河南大学 · 明伦 ${campusCount('明伦校区')} 间 / 金明 ${campusCount('金明校区')} 间</p></section>`;
   }
+  function developerCredits() {
+    return `<section class="data-sheet" aria-label="开发者名单"><h2>开发者名单</h2><p><strong>Cherish</strong></p><p>GitHub：duanqianzhi-arch</p><p>${nativeVersion?'项目仓库：duanqianzhi-arch/wait-for-you':'<a href="https://github.com/duanqianzhi-arch/wait-for-you" target="_blank" rel="noopener noreferrer">项目仓库与版本记录</a>'}</p><p class="helper">© 2026 duanqianzhi-arch · 代码采用 MIT 许可。</p></section>`;
+  }
   function aboutPage() {
-    return `<section class="page page-narrow" data-page="about">${back('settings','返回')}${heading('课表与推荐规则','知道推荐来自哪里，也知道它能说明什么。')}<section class="data-sheet"><h2>正在使用的课表</h2><div class="data-kv"><span>学校</span><strong>${escape(data.school)}</strong></div><div class="data-kv"><span>学期</span><strong>2026—2027 第一学期</strong></div><div class="data-kv"><span>导出时间</span><strong>${escape(data.sourceExportedAt)}</strong></div><div class="data-kv"><span>教学周范围</span><strong>第 1—${data.maxWeek} 周</strong></div><div class="data-kv"><span>明伦 / 金明</span><strong>${campusCount('明伦校区')} / ${campusCount('金明校区')} 间</strong></div><p>日期按北京时间识别，${escape(data.anchor.firstMonday)} 为第一周周一。课程按星期、周次、单双周和实际起止时间计算；只要课程与自习时段重叠，就排除这间教室。</p></section><section class="data-sheet"><h2>怎样排序</h2><p><strong>先按楼栋组，再按喜欢与楼层。</strong>金明综合楼和七号教学楼优先，计算机大楼放在后备组。曾宪梓楼已移除。同一组内先推荐喜欢的教室，再按低楼层、中等楼层或较高楼层排序。同等条件下，连续无课时间更长的教室靠前。中等楼层取该楼已导入教室最高层与最低层的中间位置。</p><p><strong>人少是一种倾向。</strong>这里先按较高楼层排序，没有测量现场人数。楼层按编号推算，例如金明综合楼5203暂按2层判断。</p><p><strong>无课不等于现场空置。</strong>教室开放情况、临时活动尚未接入；座位容量不是空位数，多媒体教室也不保证提供可用电脑或插座。</p><p>课表不会自动更新。学校临时调课时，可以在设置里的“学校临时调课”调整课表星期。</p></section><section class="data-sheet"><h2>开封校区作息时间</h2><table class="info-table"><thead><tr><th>节次</th><th>开始</th><th>结束</th></tr></thead><tbody>${core.PERIODS.map((p,index)=>`<tr><td>第 ${index+1} 节</td><td>${core.clock(p[0])}</td><td>${core.clock(p[1])}</td></tr>`).join('')}<tr><td>中午 1—2 节</td><td>12:30</td><td>14:00</td></tr></tbody></table></section></section>`;
+    return `<section class="page page-narrow" data-page="about">${back('settings','返回')}${heading('关于等你下课','去自习，好吗？')}${developerCredits()}<section class="data-sheet"><h2>正在使用的课表</h2><div class="data-kv"><span>学校</span><strong>${escape(data.school)}</strong></div><div class="data-kv"><span>学期</span><strong>2026—2027 第一学期</strong></div><div class="data-kv"><span>导出时间</span><strong>${escape(data.sourceExportedAt)}</strong></div><div class="data-kv"><span>教学周范围</span><strong>第 1—${data.maxWeek} 周</strong></div><div class="data-kv"><span>明伦 / 金明</span><strong>${campusCount('明伦校区')} / ${campusCount('金明校区')} 间</strong></div><p>日期按北京时间识别，${escape(data.anchor.firstMonday)} 为第一周周一。课程按星期、周次、单双周和实际起止时间计算；只要课程与自习时段重叠，就排除这间教室。</p></section><section class="data-sheet"><h2>怎样排序</h2><p><strong>先按楼栋组，再按喜欢与楼层。</strong>金明综合楼和七号教学楼优先，计算机大楼放在后备组。曾宪梓楼已移除。同一组内先推荐喜欢的教室，再按低楼层、中等楼层或较高楼层排序。同等条件下，连续无课时间更长的教室靠前。中等楼层取该楼已导入教室最高层与最低层的中间位置。</p><p><strong>人少是一种倾向。</strong>这里先按较高楼层排序，没有测量现场人数。楼层按编号推算，例如金明综合楼5203暂按2层判断。</p><p><strong>无课不等于现场空置。</strong>教室开放情况、临时活动尚未接入；座位容量不是空位数，多媒体教室也不保证提供可用电脑或插座。</p><p>课表不会自动更新。学校临时调课时，可以在设置里的“学校临时调课”调整课表星期。</p></section><section class="data-sheet"><h2>开封校区作息时间</h2><table class="info-table"><thead><tr><th>节次</th><th>开始</th><th>结束</th></tr></thead><tbody>${core.PERIODS.map((p,index)=>`<tr><td>第 ${index+1} 节</td><td>${core.clock(p[0])}</td><td>${core.clock(p[1])}</td></tr>`).join('')}<tr><td>中午 1—2 节</td><td>12:30</td><td>14:00</td></tr></tbody></table></section></section>`;
   }
   function getRoute() {
     const value=location.hash.slice(1)||'home';
@@ -201,7 +208,7 @@
     const settings=routeName()==='settings'||routeName()==='about'||(routeName()==='room'&&detailOrigin==='settings');
     document.querySelectorAll('[data-nav]').forEach(link=>{
       if(link.dataset.nav==='study')link.href='#'+currentStudyRoute;
-      if(link.dataset.nav===(settings?'settings':'study'))link.setAttribute('aria-current','page');
+      if(link.dataset.nav===(routeName()==='timetable'?'timetable':settings?'settings':'study'))link.setAttribute('aria-current','page');
       else link.removeAttribute('aria-current');
     });
   }
@@ -220,7 +227,8 @@
     else if (name==='preferences') {content=preferencesPage();title='选择偏好';}
     else if (name==='results') {content=resultsPage();title='推荐教室';}
     else if (name==='settings') {content=settingsPage();title='设置';}
-    else if (name==='about') {content=aboutPage();title='课表说明';}
+    else if (name==='about') {content=aboutPage();title='关于等你下课';}
+    else if (name==='timetable') {content=timetableUI?.render(route)||'<section class="page"><h1 tabindex="-1">我的课表</h1><p>课表页面暂时不可用，请重新打开应用。</p></section>';title='我的课表';}
     else if (name==='room') {
       let id='';try {id=decodeURIComponent(route.slice(5));}catch (_) {}
       content=detailPage(id);title=roomMap.has(id)?roomMap.get(id).name:'教室详情';
@@ -294,6 +302,7 @@
   }
   document.addEventListener('pointerup',event=>endTear(event));
   document.addEventListener('pointercancel',event=>endTear(event,true));
+  for(const type of ['touchstart','touchmove','touchend','touchcancel'])document.addEventListener(type,event=>timetableUI?.handleTouch(event),{passive:false});
   function onRouteChange() {
     scrollPositions.set(route,window.scrollY);
     const next=getRoute();
@@ -339,6 +348,9 @@
   document.addEventListener('click',event=>{
     const target=event.target.closest('button');
     if(!target) return;
+    if(timetableUI?.handleAction(target))return;
+    if(target.dataset.action==='check-update'){void appUpdates?.check(true);return;}
+    if(target.dataset.action==='dismiss-update'){appUpdates?.dismiss();return;}
     if(target.dataset.favorite) {
       const id=target.dataset.favorite;if(!roomMap.has(id))return;
       if(favorites.has(id))favorites.delete(id);else favorites.add(id);
@@ -376,6 +388,7 @@
     state[field]=target.value;currentQuery=null;queryError='';
   }
   document.addEventListener('input',event=>{
+    if(timetableUI?.handleInput(event.target))return;
     const target=event.target;
     if(target.dataset.boundary) {
       Object.assign(state,flow.moveBoundary(state.start,state.end,target.dataset.boundary,target.value));
@@ -383,11 +396,13 @@
     } else if(target.matches('[data-field]')) {readField(target);refreshTimeUI();persist();}
   });
   document.addEventListener('change',event=>{
+    if(timetableUI?.handleInput(event.target))return;
     const target=event.target;
     if(target.name==='mode'&&Object.prototype.hasOwnProperty.call(modes,target.value)) {state.mode=target.value;visibleCount=8;persist();return;}
     if(target.matches('[data-field]')) {readField(target);refreshTimeUI();persist();}
   });
   document.addEventListener('submit',event=>{
+    if(timetableUI?.handleSubmit(event.target)){event.preventDefault();return;}
     const id=event.target.id;
     if(!['time-form','preference-form'].includes(id))return;
     event.preventDefault();
@@ -408,21 +423,32 @@
     const r=event.target.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)$('info-dialog').close();
   });
   function refreshToday() {
+    timetableUI?.refreshToday();
     const today=core.chinaToday();
     if(dateAuto&&state.date!==today) {state.date=today;state.scheduleDay='';currentQuery=null;queryError='';render();}
   }
   const dateTimer=setInterval(refreshToday,60000);
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshToday();});
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden){refreshToday();appUpdates?.resume();}});
   window.addEventListener('hashchange',onRouteChange);
   window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();installPrompt=event;});
   window.addEventListener('appinstalled',()=>toast('已添加到桌面。'));
   document.querySelectorAll('[data-icon]').forEach(el=>{if(el.classList.contains('brand-mark'))el.innerHTML=icon(el.dataset.icon);else el.outerHTML=icon(el.dataset.icon);});
   if(!location.hash)history.replaceState(null,'','#home');
   route=getRoute();routeStack.push(route);render();
+  if(nativeVersion&&window.AppUpdates&&window.TimetableUI){
+    appUpdates=window.AppUpdates.create({bridge:window.TimetableUI.createNativeBridge(window,'StudyUpdateBridge'),toast,onState(update){
+      let notice=$('app-update-notice');
+      if(!notice){notice=document.createElement('section');notice.id='app-update-notice';notice.className='app-update-notice';notice.setAttribute('aria-label','应用更新');notice.setAttribute('role','status');$('app-main').before(notice);}
+      const release=update.release;notice.hidden=update.status!=='available'||update.dismissed;
+      notice.innerHTML=notice.hidden?'':`<div><b>有新版本 ${escape(release.version)}</b><p>${escape(release.notes||'更新后继续使用原课表与收藏。')}</p></div><a class="secondary-button" href="${escape(release.pageUrl)}">去更新</a><button type="button" class="text-button" data-action="dismiss-update">稍后</button>`;
+      if(routeName()==='settings')render();
+    }});
+  }
   if(nativeVersion)window.ClassroomNative = {
     handleBack() {
       const dialog=$('info-dialog');
       if(dialog.open){dialog.close();return true;}
+      if(routeName()==='timetable'&&timetableUI?.handleBack())return true;
       if(routeName()==='home')return false;
       if(routeStack.length>1)history.back();
       else navigate(routeName()==='room'?detailOrigin:routeName()==='about'?'settings':routeName()==='results'?'preferences':'home');

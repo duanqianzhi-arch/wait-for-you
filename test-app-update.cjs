@@ -1,0 +1,34 @@
+const fs=require('node:fs'),assert=require('node:assert/strict');
+assert(fs.existsSync('./dist/app-update.js'),'installed apps need a real automatic checker');
+const {create}=require('./dist/app-update.js');
+async function run(){
+ let resolve,calls=0;const notices=[],states=[];
+ const bridge={supported:true,request:()=>{calls++;return new Promise(r=>resolve=r);}};
+ const updates=create({bridge,onState:s=>states.push(s.status),toast:s=>notices.push(s)});
+ await Promise.resolve();
+ assert.equal(calls,1,'startup must check automatically');const repeated=updates.check(true);assert.equal(calls,1,'in-flight taps must share one request');
+ resolve({available:true,version:'1.2.5',versionCode:11,pageUrl:'https://henu-study.pages.dev/android-update.html?versionCode=10',notes:'New release'});await repeated;
+ assert.equal(updates.state.status,'available');assert(states.includes('available'));updates.dismiss();assert.equal(updates.state.dismissed,true);
+ bridge.request=async()=>({available:false,version:'1.2.5',versionCode:11,pageUrl:'https://henu-study.pages.dev/android-update.html?versionCode=11'});await updates.check(true);assert.equal(updates.state.status,'current');assert(notices.at(-1).includes('最新'));
+ bridge.request=async()=>{throw Error('offline');};const count=notices.length;await updates.check(false);assert.equal(updates.state.status,'error');assert.equal(notices.length,count);await updates.check(true);assert(notices.at(-1).includes('联网'));
+ let rejectStartup;const joinedNotices=[];
+ const joined=create({bridge:{supported:true,request:()=>new Promise((_,reject)=>rejectStartup=reject)},toast:s=>joinedNotices.push(s)});
+ await Promise.resolve();const manualJoin=joined.check(true);rejectStartup(Error('offline'));await manualJoin;
+ assert(joinedNotices.some(s=>s.includes('联网')),'a manual tap joining startup must get failure feedback');
+ bridge.request=async()=>({available:true,version:'1.2.5',versionCode:11,pageUrl:'https://evil.example/a'});await updates.check(false);assert.equal(updates.state.status,'error','untrusted reply cannot create an update link');
+ const web=create({bridge:{supported:false,request(){throw Error('web must not call native');}},onState:()=>{},toast:()=>{}});assert.equal(web.supported,false);
+ const {JSDOM}=require('jsdom');
+ const html=fs.readFileSync('./dist/index.html','utf8').replace('data-classroom-app>','data-classroom-app data-native-app="1.2.5">');
+ const dom=new JSDOM(html,{url:'https://appassets.androidplatform.net/assets/www/index.html#settings',runScripts:'outside-only',pretendToBeVisual:true}),w=dom.window;
+ w.scrollTo=()=>{};w.matchMedia=()=>({matches:true});w.CSS={escape:String};let nativeCalls=0;
+ w.StudyTimetableBridge={postMessage(text){const r=JSON.parse(text);setTimeout(()=>this.onmessage({data:JSON.stringify({id:r.id,ok:true,payload:null})}),0);}};
+ w.StudyUpdateBridge={postMessage(text){nativeCalls++;const r=JSON.parse(text);setTimeout(()=>this.onmessage({data:JSON.stringify({id:r.id,ok:true,payload:{available:true,version:'1.2.6',versionCode:12,pageUrl:'https://henu-study.pages.dev/android-update.html?versionCode=11',notes:'New release'}})}),0);}};
+ for(const file of ['data.js','core.js','flow.js','assets/rough.js','personal-timetable.js','henu-excel-import.js','timetable-ui.js','app-update.js','app.js'])w.eval(fs.readFileSync('./dist/'+file,'utf8'));
+ await new Promise(r=>setTimeout(r,30));assert.equal(nativeCalls,1);const banner=w.document.querySelector('#app-update-notice');assert(!banner.hidden);assert(banner.textContent.includes('1.2.6'));
+ assert.equal(banner.querySelector('a').href,'https://henu-study.pages.dev/android-update.html?versionCode=11');
+ w.document.querySelector('[data-action="dismiss-update"]').click();assert(banner.hidden);
+ w.document.querySelector('[data-action="check-update"]').click();await new Promise(r=>setTimeout(r,30));assert.equal(nativeCalls,2);assert(!banner.hidden);
+ dom.window.close();
+ console.log('PASS: native startup update, concurrent taps, version states, offline feedback and fixed official download source');
+}
+run().catch(error=>{console.error(error);process.exitCode=1;});

@@ -1,6 +1,6 @@
 'use strict';
-const CACHE='henu-classroom-2026-v15';
-const ASSETS=['./','./index.html','./styles.css?v=15','./core.js?v=11','./flow.js','./app.js?v=15','./data.js','./manifest.webmanifest','./icon-180.png','./icon-192.png','./icon-512.png','./assets/rough.js','./assets/study-note-hand.woff2','./assets/ink-dog-app-icon.png','./assets/ink-dog-time.png','./assets/ink-dog-low.png','./assets/ink-dog-balanced.png','./assets/ink-dog-quiet.png','./assets/ink-dog-results.png','./assets/ink-dog-empty.png','./assets/ink-dog-favorites.png'];
+const CACHE='henu-classroom-2026-v25';
+const ASSETS=['./','./index.html','./styles.css?v=19','./core.js?v=11','./flow.js','./app.js?v=24','./personal-timetable.js','./henu-excel-import.js','./timetable-ui.js','./app-update.js','./ios-safari-import.js','./data.js','./manifest.webmanifest','./icon-180.png','./icon-192.png','./icon-512.png','./assets/rough.js','./assets/study-note-hand.woff2','./assets/ink-dog-app-icon.png','./assets/ink-dog-time.png','./assets/ink-dog-low.png','./assets/ink-dog-balanced.png','./assets/ink-dog-quiet.png','./assets/ink-dog-results.png','./assets/ink-dog-empty.png','./assets/ink-dog-favorites.png'];
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(async cache=>{
     for(const asset of ASSETS){
