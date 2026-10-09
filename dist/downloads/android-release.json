@@ -1,20 +1,20 @@
 {
-  "version": "1.2.5",
-  "versionCode": 11,
+  "version": "1.2.6",
+  "versionCode": 12,
   "applicationId": "cn.henu.study.waitforclass",
   "minAndroid": "8.0",
   "minWebView": 102,
-  "size": 7313590,
-  "sha256": "8e7fa5d54ee9b82bed5f4b05b5d38130f8721c37b7b6af78025106adbf22f688",
+  "size": 7317451,
+  "sha256": "3021f02ad6345f60c91c03a9dde7b873a36535b5c5f50f49338301985e3a04ef",
   "certificateSha256": "b75e65f5f1a72f333b206189c449ac8d2a1a1405235f48babfbe6ff67e45c1c1",
   "signatureVerified": true,
   "permissions": [
     "android.permission.INTERNET"
   ],
-  "bundledFiles": 23,
+  "bundledFiles": 24,
   "runtimeStatus": "public-beta",
-  "file": "dengni-xiake-v1.2.5.apk",
+  "file": "dengni-xiake-v1.2.6.apk",
   "releaseDate": "2026-10-09",
-  "label": "Public beta: automatic update checks and local Safari timetable import",
-  "notes": "自动检查更新；新增iPhone网页课表导入、周切换与课程修改。"
+  "label": "Public beta: local Excel timetable import and developer credits",
+  "notes": "网页支持学校导出的Excel课表，保留线上和未排定课程；关于页面新增开发者Cherish。"
 }

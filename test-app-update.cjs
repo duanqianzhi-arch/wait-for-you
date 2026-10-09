@@ -23,7 +23,7 @@ async function run(){
  w.scrollTo=()=>{};w.matchMedia=()=>({matches:true});w.CSS={escape:String};let nativeCalls=0;
  w.StudyTimetableBridge={postMessage(text){const r=JSON.parse(text);setTimeout(()=>this.onmessage({data:JSON.stringify({id:r.id,ok:true,payload:null})}),0);}};
  w.StudyUpdateBridge={postMessage(text){nativeCalls++;const r=JSON.parse(text);setTimeout(()=>this.onmessage({data:JSON.stringify({id:r.id,ok:true,payload:{available:true,version:'1.2.6',versionCode:12,pageUrl:'https://henu-study.pages.dev/android-update.html?versionCode=11',notes:'New release'}})}),0);}};
- for(const file of ['data.js','core.js','flow.js','assets/rough.js','personal-timetable.js','timetable-ui.js','app-update.js','app.js'])w.eval(fs.readFileSync('./dist/'+file,'utf8'));
+ for(const file of ['data.js','core.js','flow.js','assets/rough.js','personal-timetable.js','henu-excel-import.js','timetable-ui.js','app-update.js','app.js'])w.eval(fs.readFileSync('./dist/'+file,'utf8'));
  await new Promise(r=>setTimeout(r,30));assert.equal(nativeCalls,1);const banner=w.document.querySelector('#app-update-notice');assert(!banner.hidden);assert(banner.textContent.includes('1.2.6'));
  assert.equal(banner.querySelector('a').href,'https://henu-study.pages.dev/android-update.html?versionCode=11');
  w.document.querySelector('[data-action="dismiss-update"]').click();assert(banner.hidden);

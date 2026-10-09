@@ -6,8 +6,8 @@ android {
         applicationId 'cn.henu.study.waitforclass'
         minSdk 26
         targetSdk 35
-        versionCode 11
-        versionName '1.2.5'
+        versionCode 12
+        versionName '1.2.6'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
     sourceSets { main { assets.srcDirs = ['build/generated/web-assets'] } }
@@ -52,7 +52,7 @@ tasks.register('syncWebAssets', Sync) {
     from(rootProject.file('../dist'))
     into(layout.buildDirectory.dir('generated/web-assets/www'))
     include 'index.html', 'styles.css', 'data.js', 'core.js', 'flow.js', 'app.js', 'app-update.js', 'henu-schedule-adapter.js',
-            'personal-timetable.js', 'timetable-ui.js',
+            'personal-timetable.js', 'henu-excel-import.js', 'timetable-ui.js',
             'assets/rough.js', 'assets/study-note-hand.woff2',
             'assets/OFL-Xiaolai.txt', 'assets/OFL-RoughJS-MIT.txt',
             'assets/LICENSE-AndroidX-Apache-2.0.txt',
@@ -61,7 +61,7 @@ tasks.register('syncWebAssets', Sync) {
             'assets/ink-dog-quiet.png', 'assets/ink-dog-results.png',
             'assets/ink-dog-empty.png', 'assets/ink-dog-favorites.png'
     filesMatching('index.html') {
-        filter { line -> line.replace('<html lang="zh-CN" data-classroom-app>', '<html lang="zh-CN" data-classroom-app data-native-app="1.2.5">')
+        filter { line -> line.replace('<html lang="zh-CN" data-classroom-app>', '<html lang="zh-CN" data-classroom-app data-native-app="1.2.6">')
                             .replace('<link rel="manifest" href="manifest.webmanifest">', '') }
     }
 }

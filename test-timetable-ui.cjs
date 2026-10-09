@@ -99,7 +99,7 @@ async function run(){
   const shell=new JSDOM(html,{url:'https://appassets.androidplatform.net/assets/www/index.html#timetable',runScripts:'outside-only',pretendToBeVisual:true});
   const w=shell.window;w.scrollTo=()=>{};w.CSS={escape:String};w.matchMedia=()=>({matches:true});
   w.StudyTimetableBridge={postMessage:message=>{const request=JSON.parse(message);queueMicrotask(()=>w.StudyTimetableBridge.onmessage({data:JSON.stringify({id:request.id,ok:true,payload:request.action==='load'?sample:null})}));}};
-  for(const file of ['data.js','core.js','flow.js','assets/rough.js','personal-timetable.js','timetable-ui.js','app.js'])w.eval(fs.readFileSync(path.join(__dirname,'dist',file),'utf8'));
+  for(const file of ['data.js','core.js','flow.js','assets/rough.js','personal-timetable.js','henu-excel-import.js','timetable-ui.js','app.js'])w.eval(fs.readFileSync(path.join(__dirname,'dist',file),'utf8'));
   await tick();assert.equal(w.document.querySelectorAll('[data-nav]').length,3,'bottom navigation must have three sections');
   assert.equal(w.document.querySelector('[data-nav="timetable"]').getAttribute('aria-current'),'page');
   const top=w.document.querySelector('.app-header').innerHTML;
